@@ -1,0 +1,4 @@
+# AutoPiff Reachability Service Dependencies
+karton-core>=5.0.0
+jsonschema>=4.17.0
+mwdblib>=4.0.0

@@ -1,0 +1,147 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AutoPiff Stage 4: Semantic Delta Extraction",
+    "type": "object",
+    "required": [
+        "autopiff_stage",
+        "driver_new",
+        "driver_old",
+        "deltas"
+    ],
+    "properties": {
+        "autopiff_stage": {
+            "type": "string",
+            "const": "semantic_deltas"
+        },
+        "driver_new": {
+            "type": "object",
+            "required": ["sha256", "version"],
+            "properties": {
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{64}$"
+                },
+                "version": {
+                    "type": ["string", "null"]
+                }
+            }
+        },
+        "driver_old": {
+            "type": "object",
+            "required": ["sha256", "version"],
+            "properties": {
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{64}$"
+                },
+                "version": {
+                    "type": ["string", "null"]
+                }
+            }
+        },
+        "deltas": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "function",
+                    "rule_id",
+                    "category",
+                    "confidence",
+                    "sinks",
+                    "indicators",
+                    "diff_snippet",
+                    "why_matters"
+                ],
+                "properties": {
+                    "function": {
+                        "type": "string",
+                        "description": "Function name where delta was detected"
+                    },
+                    "rule_id": {
+                        "type": "string",
+                        "description": "Semantic rule that triggered"
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": [
+                            "bounds_check",
+                            "lifetime_fix",
+                            "user_boundary_check",
+                            "int_overflow",
+                            "state_hardening"
+                        ]
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0
+                    },
+                    "sinks": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Sink groups involved (memory_copy, pool_free, etc.)"
+                    },
+                    "indicators": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Specific patterns/symbols that triggered the rule"
+                    },
+                    "diff_snippet": {
+                        "type": "string",
+                        "description": "Relevant portion of unified diff"
+                    },
+                    "why_matters": {
+                        "type": "string",
+                        "description": "Plain English explanation of security relevance"
+                    },
+                    "surface_area": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["ioctl", "ndis", "storage", "filesystem", "unknown"]
+                        }
+                    }
+                }
+            }
+        },
+        "summary": {
+            "type": "object",
+            "properties": {
+                "total_deltas": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "by_category": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "by_rule": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "top_functions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "maxItems": 10
+                }
+            }
+        },
+        "notes": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    }
+}

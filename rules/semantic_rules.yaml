@@ -1,0 +1,220 @@
+# AutoPiff semantic rules (v1 conservative)
+# Rules are designed for high precision and explainability.
+# Each rule must map cleanly to report fields: category, why, indicators, diff_hint.
+
+version: 1
+categories:
+  - id: bounds_check
+    description: Added or strengthened bounds/size/index validation.
+  - id: lifetime_fix
+    description: Added or strengthened pointer lifetime / ownership protection.
+  - id: user_boundary_check
+    description: Added or strengthened validation of user-mode supplied data/pointers.
+  - id: int_overflow
+    description: Added or strengthened safe integer/size arithmetic checks.
+  - id: state_hardening
+    description: Added or strengthened state/refcount/synchronization validation.
+
+rules:
+
+  # --- Bounds & size validation (high precision) ---
+  - rule_id: added_len_check_before_memcpy
+    category: bounds_check
+    confidence: 0.92
+    required_signals:
+      - sink_group: memory_copy
+      - change_type: guard_added
+      - guard_kind: length_check
+      - proximity: near_sink
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added a length/bounds check before a memory copy operation.
+    report:
+      added_checks:
+        - length_check
+      sinks:
+        - memory_copy
+
+  - rule_id: added_struct_size_validation
+    category: bounds_check
+    confidence: 0.88
+    required_signals:
+      - change_type: guard_added
+      - guard_kind: sizeof_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added validation that an input buffer/structure is large enough.
+    report:
+      added_checks:
+        - sizeof_check
+
+  - rule_id: added_index_bounds_check
+    category: bounds_check
+    confidence: 0.86
+    required_signals:
+      - change_type: guard_added
+      - guard_kind: index_bounds
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added an index bounds check to prevent out-of-range access.
+    report:
+      added_checks:
+        - index_bounds
+
+  # --- Lifetime fixes (high precision) ---
+  - rule_id: null_after_free_added
+    category: lifetime_fix
+    confidence: 0.88
+    required_signals:
+      - sink_group: pool_free
+      - change_type: post_free_hardening
+      - hardening_kind: null_assignment
+      - proximity: immediately_after_sink
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Pointer is now set to NULL immediately after freeing memory.
+    report:
+      sinks:
+        - pool_free
+      added_checks:
+        - null_after_free
+
+  - rule_id: guard_before_free_added
+    category: lifetime_fix
+    confidence: 0.86
+    required_signals:
+      - sink_group: pool_free
+      - change_type: guard_added
+      - guard_kind: null_check
+      - proximity: near_sink
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added a NULL check before freeing a pointer (possible double-free/UAF hardening).
+    report:
+      sinks:
+        - pool_free
+      added_checks:
+        - null_check
+
+  # --- User/kernel boundary validation (high precision) ---
+  - rule_id: probe_for_read_or_write_added
+    category: user_boundary_check
+    confidence: 0.93
+    required_signals:
+      - sink_group: user_probe
+      - change_type: validation_added
+      - validation_kind: probe
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added ProbeForRead/ProbeForWrite to validate user-mode pointers.
+    report:
+      sinks:
+        - user_probe
+      added_checks:
+        - probe_for_read_write
+
+  - rule_id: previous_mode_gating_added
+    category: user_boundary_check
+    confidence: 0.90
+    required_signals:
+      - sink_group: user_probe
+      - change_type: validation_added
+      - validation_kind: previous_mode_gate
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added ExGetPreviousMode gating to treat user callers differently from kernel callers.
+    report:
+      sinks:
+        - user_probe
+      added_checks:
+        - previous_mode_gate
+
+  - rule_id: seh_guard_added_around_user_deref
+    category: user_boundary_check
+    confidence: 0.82
+    required_signals:
+      - sink_group: exceptions
+      - change_type: validation_added
+      - validation_kind: seh_guard
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added structured exception handling around potentially unsafe pointer access.
+    report:
+      sinks:
+        - exceptions
+      added_checks:
+        - seh_guard
+
+  # --- Integer overflow / size arithmetic hardening ---
+  - rule_id: safe_size_math_helper_added
+    category: int_overflow
+    confidence: 0.88
+    required_signals:
+      - sink_group: io_sanitization
+      - change_type: validation_added
+      - validation_kind: safe_math_helper
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Replaced raw size arithmetic with safe math helpers (overflow hardening).
+    report:
+      sinks:
+        - io_sanitization
+      added_checks:
+        - safe_math
+
+  - rule_id: alloc_size_overflow_check_added
+    category: int_overflow
+    confidence: 0.90
+    required_signals:
+      - sink_group: pool_alloc
+      - change_type: guard_added
+      - guard_kind: overflow_check
+      - proximity: near_sink
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added an overflow/size check before allocating memory.
+    report:
+      sinks:
+        - pool_alloc
+      added_checks:
+        - overflow_check
+
+  # --- State hardening (kept conservative) ---
+  - rule_id: interlocked_refcount_added
+    category: state_hardening
+    confidence: 0.78
+    required_signals:
+      - sink_group: refcounting
+      - change_type: hardening_added
+      - hardening_kind: refcount
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added Interlocked-based refcounting to protect shared object lifetime/state.
+    report:
+      sinks:
+        - refcounting
+      added_checks:
+        - refcount_hardening
+
+# Global exclusions used by semantic extractor
+global_exclusions:
+  - pattern_id: logging_only
+    description: Changes limited to tracing/logging/telemetry.
+    hints:
+      - DbgPrint
+      - WPP
+      - EventWrite
+      - Etw
+  - pattern_id: refactor_only
+    description: Reordering/renaming or CFG reshaping without new guards/validation.

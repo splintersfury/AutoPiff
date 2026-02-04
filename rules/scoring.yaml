@@ -1,0 +1,176 @@
+# AutoPiff scoring model (v1 conservative)
+# Goal: rank findings by "worth a human's time" while minimizing noise.
+# Key principles:
+# - Reachability matters a lot (ioctl > irp > internal)
+# - Conservative semantic rules dominate score
+# - Pairing noise penalizes heavily
+# - Confidence gates everything (low confidence findings should not float to the top)
+
+version: 1
+
+# Global caps and thresholds
+gating:
+  # If matching confidence is very low, cap total score hard.
+  matching_confidence:
+    min_required: 0.40
+    cap_if_below: 3.0
+
+  # If semantic confidence is low, cap score.
+  semantic_confidence:
+    soft_min: 0.60
+    cap_if_below_soft_min: 5.0
+    hard_min: 0.45
+    drop_if_below_hard_min: true
+
+  # If reachability confidence is low, reduce reachability contribution.
+  reachability_confidence:
+    soft_min: 0.55
+    multiplier_if_below: 0.70
+
+# Base scoring contributions
+weights:
+  # Semantic rule contributions: this is the backbone of ranking.
+  # Weights reflect conservative belief about "this looks like a vuln fix".
+  semantic_rule_base:
+    added_len_check_before_memcpy: 6.0
+    added_struct_size_validation: 4.5
+    added_index_bounds_check: 4.0
+
+    null_after_free_added: 5.0
+    guard_before_free_added: 4.0
+
+    probe_for_read_or_write_added: 6.0
+    previous_mode_gating_added: 5.0
+    seh_guard_added_around_user_deref: 3.5
+
+    safe_size_math_helper_added: 4.5
+    alloc_size_overflow_check_added: 5.5
+
+    interlocked_refcount_added: 3.0
+
+  # Category multipliers: small nudge, not the main driver.
+  category_multiplier:
+    bounds_check: 1.05
+    user_boundary_check: 1.10
+    int_overflow: 1.05
+    lifetime_fix: 1.05
+    state_hardening: 0.95
+
+  # Reachability contributions: large differentiator.
+  # This is added as a bonus on top of semantic rule score.
+  reachability_bonus:
+    ioctl: 4.0
+    irp: 2.5
+    pnp: 2.0
+    internal: 0.5
+    unknown: 0.0
+
+  # Additional bonuses when there is explicit sink proximity evidence.
+  # (Only apply when semantic rule already triggered; do not score sinks alone.)
+  sink_bonus:
+    memory_copy: 1.5
+    pool_alloc: 1.2
+    pool_free: 1.0
+    user_probe: 1.5
+    io_sanitization: 1.0
+    exceptions: 0.6
+    string_copy: 0.8
+    refcounting: 0.4
+
+  # Penalties for noisy pairing or low-quality comparisons.
+  penalties:
+    pairing_decision:
+      accept: 0.0
+      quarantine: 2.0
+      reject: 999.0  # should never be scored if rejected; safety guard
+
+    noise_risk:
+      low: 0.0
+      medium: 1.0
+      high: 2.5
+
+    # Penalize when function matching indicates instability.
+    matching_quality:
+      high: 0.0
+      medium: 0.8
+      low: 1.8
+
+# Score composition rules (authoritative)
+composition:
+  # Final score per finding is built as:
+  #
+  # semantic_score =
+  #   sum(rule_base_weight * rule_confidence) * category_multiplier
+  #
+  # reachability_score =
+  #   reachability_bonus * reachability_confidence_adjusted
+  #
+  # sink_score =
+  #   sum(sink_bonus[group]) * min(1.0, semantic_confidence)
+  #
+  # penalties =
+  #   pairing_decision_penalty + noise_risk_penalty + matching_quality_penalty
+  #
+  # final_score = (semantic_score + reachability_score + sink_score) - penalties
+  #
+  # Then apply gating caps/drops from `gating`.
+
+  max_findings_in_report: 10
+
+  # Only one semantic rule is required to create a finding.
+  # If multiple rules trigger for the same function, they stack (conservative but useful).
+  allow_rule_stacking: true
+
+  # How to adjust reachability contribution when confidence is low.
+  reachability_confidence_adjust:
+    below_soft_min_multiplier: gating.reachability_confidence.multiplier_if_below
+
+  # Clamp scores to avoid weird negatives.
+  clamp:
+    min: 0.0
+    max: 15.0
+
+# Explainability requirements: ranking stage MUST output these fields for each finding.
+explainability:
+  required_fields:
+    - rule_ids
+    - category
+    - semantic_confidence
+    - matching_confidence
+    - reachability_class
+    - reachability_confidence
+    - sinks
+    - penalties_applied
+    - score_breakdown
+
+  score_breakdown_format:
+    semantic:
+      - rule_id
+      - base_weight
+      - rule_confidence
+      - contribution
+    reachability:
+      - class
+      - bonus
+      - confidence
+      - contribution
+    sinks:
+      - sink_group
+      - bonus
+      - contribution
+    penalties:
+      - type
+      - value
+    final:
+      - total_before_clamp
+      - total_after_clamp
+      - gates_triggered
+
+# Conservative defaults for mapping "matching confidence" to quality buckets
+matching_quality_buckets:
+  high:
+    min_confidence: 0.80
+  medium:
+    min_confidence: 0.60
+  low:
+    min_confidence: 0.00

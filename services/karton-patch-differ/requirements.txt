@@ -1,0 +1,19 @@
+# AutoPiff Patch Differ Service Dependencies
+
+# Karton framework
+karton-core>=5.0.0
+
+# MWDB client library
+mwdblib>=4.0.0
+
+# PE file parsing
+pefile>=2023.2.7
+
+# YAML parsing for rules
+PyYAML>=6.0
+
+# JSON schema validation
+jsonschema>=4.17.0
+
+# HTTP requests
+requests>=2.28.0

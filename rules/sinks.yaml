@@ -1,0 +1,87 @@
+# AutoPiff sink definitions
+# Purpose: central catalog of "dangerous" APIs / operations that become high-signal
+# when patches add guards, bounds checks, or validations around them.
+
+version: 1
+sinks:
+  memory_copy:
+    description: Memory copy/move primitives frequently involved in OOB and overflow issues.
+    symbols:
+      - RtlCopyMemory
+      - memcpy
+      - memmove
+      - RtlMoveMemory
+      - RtlCopyBytes
+      - RtlCopyMappedMemory
+
+  string_copy:
+    description: String copy/concat routines that can overflow or truncate incorrectly.
+    symbols:
+      - RtlStringCbCopyA
+      - RtlStringCbCopyW
+      - RtlStringCbCatA
+      - RtlStringCbCatW
+      - RtlStringCchCopyA
+      - RtlStringCchCopyW
+      - RtlStringCchCatA
+      - RtlStringCchCatW
+      - wcscpy
+      - strcpy
+      - strcat
+      - wcsncpy
+      - strncpy
+
+  pool_alloc:
+    description: Pool allocations are a common precursor to size miscalculation vulnerabilities.
+    symbols:
+      - ExAllocatePool
+      - ExAllocatePoolWithTag
+      - ExAllocatePool2
+      - ExAllocatePool3
+      - ExAllocatePoolZero
+      - ExAllocatePoolWithQuota
+      - ExAllocatePoolWithQuotaTag
+
+  pool_free:
+    description: Pool frees are key for lifetime bugs (double free/UAF patterns).
+    symbols:
+      - ExFreePool
+      - ExFreePoolWithTag
+
+  user_probe:
+    description: User/kernel boundary validation primitives.
+    symbols:
+      - ProbeForRead
+      - ProbeForWrite
+      - ProbeForReadGeneric
+      - ProbeForWriteGeneric
+      - ExGetPreviousMode
+
+  io_sanitization:
+    description: Typical kernel validation and safe math helpers.
+    symbols:
+      - RtlULongAdd
+      - RtlULongSub
+      - RtlULongMult
+      - RtlULongLongAdd
+      - RtlULongLongMult
+      - RtlSizeTAdd
+      - RtlSizeTMult
+      - RtlUIntPtrAdd
+      - RtlUIntPtrSub
+
+  exceptions:
+    description: SEH / exception helpers used to guard unsafe dereferences.
+    symbols:
+      - __try
+      - __except
+      - ExRaiseAccessViolation
+
+  refcounting:
+    description: Reference count / atomic primitives commonly used to fix state/lifetime bugs.
+    symbols:
+      - InterlockedIncrement
+      - InterlockedDecrement
+      - InterlockedExchange
+      - InterlockedCompareExchange
+      - InterlockedAdd

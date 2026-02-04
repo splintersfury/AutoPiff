@@ -1,0 +1,126 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AutoPiff Stage 3: Function Matching",
+    "type": "object",
+    "required": [
+        "autopiff_stage",
+        "driver_new",
+        "driver_old",
+        "matching"
+    ],
+    "properties": {
+        "autopiff_stage": {
+            "type": "string",
+            "const": "matching"
+        },
+        "driver_new": {
+            "type": "object",
+            "required": ["sha256"],
+            "properties": {
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{64}$"
+                }
+            }
+        },
+        "driver_old": {
+            "type": "object",
+            "required": ["sha256"],
+            "properties": {
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{64}$"
+                }
+            }
+        },
+        "matching": {
+            "type": "object",
+            "required": [
+                "method",
+                "confidence",
+                "matched_count",
+                "added_count",
+                "removed_count",
+                "changed_count",
+                "total_new",
+                "total_old",
+                "quality"
+            ],
+            "properties": {
+                "method": {
+                    "type": "string",
+                    "enum": ["hash_lcs", "bsim", "diaphora", "bindiff"],
+                    "description": "Matching algorithm used"
+                },
+                "confidence": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0
+                },
+                "matched_count": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "added_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Functions only in new version"
+                },
+                "removed_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Functions only in old version"
+                },
+                "changed_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Matched functions with differences"
+                },
+                "total_new": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "total_old": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "quality": {
+                    "type": "string",
+                    "enum": ["high", "medium", "low"],
+                    "description": "Overall matching quality bucket"
+                },
+                "matched_pairs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["function", "confidence", "changed"],
+                        "properties": {
+                            "function": {
+                                "type": "string"
+                            },
+                            "confidence": {
+                                "type": "number",
+                                "minimum": 0.0,
+                                "maximum": 1.0
+                            },
+                            "changed": {
+                                "type": "boolean"
+                            },
+                            "delta_score": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "Line-based change magnitude"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "notes": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    }
+}

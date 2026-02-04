@@ -1,0 +1,84 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AutoPiff Stage 1: Pairing & Noise Gating",
+    "type": "object",
+    "required": [
+        "autopiff_stage",
+        "driver_new",
+        "driver_old",
+        "decision",
+        "confidence",
+        "noise_risk",
+        "rationale"
+    ],
+    "properties": {
+        "autopiff_stage": {
+            "type": "string",
+            "const": "pairing"
+        },
+        "driver_new": {
+            "type": "object",
+            "required": ["sha256", "product", "version", "arch"],
+            "properties": {
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{64}$"
+                },
+                "product": {
+                    "type": ["string", "null"]
+                },
+                "version": {
+                    "type": ["string", "null"]
+                },
+                "arch": {
+                    "type": "string",
+                    "enum": ["x64", "x86", "ARM64", "Unknown"]
+                }
+            }
+        },
+        "driver_old": {
+            "type": ["object", "null"],
+            "properties": {
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{64}$"
+                },
+                "product": {
+                    "type": ["string", "null"]
+                },
+                "version": {
+                    "type": ["string", "null"]
+                },
+                "arch": {
+                    "type": "string",
+                    "enum": ["x64", "x86", "ARM64", "Unknown"]
+                }
+            }
+        },
+        "decision": {
+            "type": "string",
+            "enum": ["accept", "quarantine", "reject"],
+            "description": "accept=proceed, quarantine=proceed with penalty, reject=stop"
+        },
+        "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+        },
+        "noise_risk": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+        },
+        "rationale": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Reasons for the decision"
+        },
+        "arch_mismatch": {
+            "type": "boolean",
+            "default": false
+        }
+    }
+}

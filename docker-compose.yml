@@ -1,0 +1,205 @@
+# AutoPiff Docker Compose
+# Full pipeline: MWDB + Karton + AutoPiff services
+#
+# Usage:
+#   docker-compose up -d              # Start all services
+#   docker-compose logs -f autopiff-patch-differ  # Follow logs
+#   docker-compose down               # Stop all services
+
+version: "3.8"
+
+services:
+  # ==========================================================================
+  # Infrastructure: MWDB (Malware Database)
+  # ==========================================================================
+
+  mwdb-postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: mwdb
+      POSTGRES_USER: mwdb
+      POSTGRES_PASSWORD: mwdb
+    volumes:
+      - mwdb-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mwdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mwdb-redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mwdb-core:
+    image: certpl/mwdb:latest
+    depends_on:
+      mwdb-postgres:
+        condition: service_healthy
+      mwdb-redis:
+        condition: service_healthy
+    environment:
+      MWDB_POSTGRES_URI: postgresql://mwdb:mwdb@mwdb-postgres/mwdb
+      MWDB_REDIS_URI: redis://mwdb-redis
+      MWDB_SECRET_KEY: ${MWDB_SECRET_KEY:-change-me-in-production}
+      MWDB_ADMIN_LOGIN: admin
+      MWDB_ADMIN_PASSWORD: ${MWDB_ADMIN_PASSWORD:-admin}
+    ports:
+      - "8080:8080"
+    volumes:
+      - mwdb-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================================================
+  # Infrastructure: Karton (Task Queue)
+  # ==========================================================================
+
+  karton-redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:RELEASE.2024-01-01T16-36-33Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  karton-system:
+    image: certpl/karton-system:latest
+    depends_on:
+      karton-redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      KARTON_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      KARTON_S3_ADDRESS: minio:9000
+      KARTON_S3_BUCKET: karton
+      KARTON_S3_SECURE: "false"
+    volumes:
+      - ./karton.ini:/etc/karton/karton.ini:ro
+
+  karton-dashboard:
+    image: certpl/karton-dashboard:latest
+    depends_on:
+      - karton-system
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      KARTON_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      KARTON_S3_ADDRESS: minio:9000
+      KARTON_S3_BUCKET: karton
+      KARTON_S3_SECURE: "false"
+    ports:
+      - "8081:5000"
+    volumes:
+      - ./karton.ini:/etc/karton/karton.ini:ro
+
+  # ==========================================================================
+  # AutoPiff Services
+  # ==========================================================================
+
+  # Stage 1-4: Patch Differ (Pairing, Symbols, Matching, Semantic Deltas)
+  autopiff-patch-differ:
+    build:
+      context: .
+      dockerfile: services/karton-patch-differ/Dockerfile
+    depends_on:
+      - karton-system
+      - mwdb-core
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      KARTON_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      KARTON_S3_ADDRESS: minio:9000
+      KARTON_S3_BUCKET: karton
+      KARTON_S3_SECURE: "false"
+      MWDB_API_URL: http://mwdb-core:8080/api/
+      MWDB_API_KEY: ${MWDB_API_KEY:-}
+      AUTOPIFF_GHIDRA_TIMEOUT: "2400"
+    volumes:
+      - ./karton.ini:/etc/karton/karton.ini:ro
+      - ghidra-cache:/tmp/ghidra_cache
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+
+  # Stage 5: Reachability Tagging
+  autopiff-reachability:
+    build:
+      context: .
+      dockerfile: services/karton-reachability/Dockerfile
+    depends_on:
+      - karton-system
+      - mwdb-core
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      KARTON_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      KARTON_S3_ADDRESS: minio:9000
+      KARTON_S3_BUCKET: karton
+      KARTON_S3_SECURE: "false"
+      MWDB_API_URL: http://mwdb-core:8080/api/
+      MWDB_API_KEY: ${MWDB_API_KEY:-}
+      AUTOPIFF_GHIDRA_TIMEOUT: "900"
+    volumes:
+      - ./karton.ini:/etc/karton/karton.ini:ro
+      - ghidra-cache:/tmp/ghidra_cache
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+
+  # ==========================================================================
+  # Optional: Driver Classifier (routes drivers to AutoPiff)
+  # ==========================================================================
+
+  karton-classifier:
+    image: certpl/karton-classifier:latest
+    depends_on:
+      - karton-system
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      KARTON_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      KARTON_S3_ADDRESS: minio:9000
+      KARTON_S3_BUCKET: karton
+      KARTON_S3_SECURE: "false"
+    volumes:
+      - ./karton.ini:/etc/karton/karton.ini:ro
+
+volumes:
+  mwdb-postgres-data:
+  mwdb-uploads:
+  minio-data:
+  ghidra-cache:

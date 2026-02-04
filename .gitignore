@@ -1,0 +1,36 @@
+# Environment and secrets
+.env
+*.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Large files
+*.zip
+*.sys
+ghidra_*/
+
+# Temp/cache
+*.tmp
+*.log
+.cache/
+tmp/
+
+# Docker volumes (if local)
+mwdb-uploads/
+minio-data/
+
+# Claude config
+.claude/

@@ -1,0 +1,192 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AutoPiff Stage 5: Reachability Tagging",
+    "type": "object",
+    "required": [
+        "autopiff_stage",
+        "driver",
+        "dispatch",
+        "ioctls",
+        "tags",
+        "notes"
+    ],
+    "properties": {
+        "autopiff_stage": {
+            "type": "string",
+            "const": "reachability"
+        },
+        "driver": {
+            "type": "object",
+            "required": [
+                "sha256",
+                "arch"
+            ],
+            "properties": {
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{64}$"
+                },
+                "arch": {
+                    "type": "string"
+                }
+            }
+        },
+        "dispatch": {
+            "type": "object",
+            "required": [
+                "driver_entry",
+                "major_functions"
+            ],
+            "properties": {
+                "driver_entry": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Hex address or symbol name of DriverEntry"
+                },
+                "major_functions": {
+                    "type": "object",
+                    "required": [
+                        "IRP_MJ_CREATE",
+                        "IRP_MJ_CLOSE",
+                        "IRP_MJ_DEVICE_CONTROL",
+                        "IRP_MJ_INTERNAL_DEVICE_CONTROL"
+                    ],
+                    "properties": {
+                        "IRP_MJ_CREATE": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "IRP_MJ_CLOSE": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "IRP_MJ_DEVICE_CONTROL": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "IRP_MJ_INTERNAL_DEVICE_CONTROL": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
+                    "additionalProperties": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            }
+        },
+        "ioctls": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "ioctl",
+                    "handler",
+                    "confidence",
+                    "evidence"
+                ],
+                "properties": {
+                    "ioctl": {
+                        "type": "string",
+                        "description": "Hex string '0x...' or 'unknown'",
+                        "pattern": "^(0x[0-9A-Fa-f]{1,8}|unknown)$"
+                    },
+                    "handler": {
+                        "type": "string"
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "switch_on_IoControlCode",
+                                "ioctl_values_unknown"
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "tags": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "function",
+                    "reachability_class",
+                    "confidence",
+                    "paths",
+                    "evidence"
+                ],
+                "properties": {
+                    "function": {
+                        "type": "string"
+                    },
+                    "reachability_class": {
+                        "type": "string",
+                        "enum": [
+                            "ioctl",
+                            "irp",
+                            "pnp",
+                            "internal",
+                            "unknown"
+                        ]
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0
+                    },
+                    "paths": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "minItems": 1
+                        }
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "driver_entry_dispatch_setup",
+                                "major_function_assignment",
+                                "switch_on_IoControlCode",
+                                "ioctl_case_call",
+                                "direct_callgraph_edge",
+                                "ioctl_values_unknown"
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "notes": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    }
+}
