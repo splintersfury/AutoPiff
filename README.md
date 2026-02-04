@@ -22,6 +22,76 @@ AutoPiff analyzes the differences between vulnerable and patched driver versions
 - **Scoring Model**: Ranks findings by exploitability and reachability
 - **Karton Integration**: Runs as a service in malware analysis pipelines
 
+## Why AutoPiff?
+
+### The Problem: Needle in a Haystack
+
+```
+Vendor releases 500 driver updates/year
+├── 490 are feature/performance/cosmetic changes
+├── 8 are minor bug fixes
+└── 2 are silent security fixes (no CVE assigned)
+
+Without automation: Manually review 500 to find 2
+With AutoPiff:      Review 10 high-scorers to find 2
+```
+
+Security patches are often released without CVE assignments. Manually reverse engineering every driver update to find the security-relevant ones is not feasible. AutoPiff solves this asymmetry problem by automatically surfacing the changes that matter.
+
+### What AutoPiff Automates
+
+| Phase | Manual Effort | With AutoPiff | Time Saved |
+|-------|---------------|---------------|------------|
+| Version pairing | 5-15 min/driver | Automatic | ~100% |
+| Decompilation | 2-10 min/binary | Batched, parallel | ~95% |
+| Function matching | 30-60 min/pair | Instant | ~100% |
+| Identifying security changes | 2-8 hours/pair | Seconds | ~99% |
+| Initial triage & ranking | 1-2 hours | Instant | ~100% |
+| Report generation | 30-60 min | Instant | ~100% |
+
+**Total: 4-12 hours per driver pair → 2-5 minutes**
+
+### What Still Requires Human Expertise
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  AUTOMATED by AutoPiff                                          │
+│  ├── Find the needle: "This function changed near ExFreePool"   │
+│  ├── Classify: "Looks like a use-after-free fix"                │
+│  └── Rank: "Score 5.5 - worth investigating"                    │
+├─────────────────────────────────────────────────────────────────┤
+│  STILL MANUAL (Your expertise)                                  │
+│  ├── Confirm exploitability: "Can I actually trigger this?"     │
+│  ├── Root cause analysis: "Why was this vulnerable?"            │
+│  ├── Exploit development: "How do I reach this sink?"           │
+│  └── Impact assessment: "What's the real-world risk?"           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+AutoPiff doesn't replace exploitation research—it makes it **feasible at scale** by automating the reconnaissance phase.
+
+### Use Cases
+
+**1. Silent Patch Detection**
+- Monitor drivers for security fixes released without CVEs
+- Get alerts when high-scoring semantic deltas appear
+- Catch vulnerabilities before they're publicly disclosed
+
+**2. 1-Day Vulnerability Research**
+- When a CVE is announced, quickly identify the exact patch
+- Correlate patch patterns with vulnerability classes
+- Accelerate exploit development timelines
+
+**3. Vendor Security Auditing**
+- Analyze all versions of a driver family over time
+- Generate timelines showing when fixes appeared
+- Identify patterns in how vendors address vulnerabilities
+
+**4. Historical CVE Corpus Building**
+- Process known CVE driver pairs to build training data
+- Validate and improve detection rules
+- Create a knowledge base of patch signatures
+
 ## Architecture
 
 ```
