@@ -19,6 +19,8 @@ import hashlib
 import difflib
 import tempfile
 import subprocess
+import itertools
+import uuid
 from typing import Optional, Tuple, List, Dict, Set, Any
 from dataclasses import dataclass, asdict
 
@@ -157,7 +159,8 @@ class PatchDifferKarton(Karton):
 
     def _get_version_info(self, file_path: str) -> DriverInfo:
         """Extract product name, version, and architecture from PE."""
-        sha256 = hashlib.sha256(open(file_path, 'rb').read()).hexdigest()
+        with open(file_path, 'rb') as fh:
+            sha256 = hashlib.sha256(fh.read()).hexdigest()
 
         try:
             pe = pefile.PE(file_path, fast_load=True)
@@ -205,7 +208,7 @@ class PatchDifferKarton(Karton):
         clean_ver = re.sub(r'[^0-9\.]', '', version_str)
         try:
             return [int(x) for x in clean_ver.split('.') if x]
-        except:
+        except (ValueError, TypeError):
             return []
 
     def _find_closest_prior_version(self, info: DriverInfo) -> Optional[MWDBFile]:
@@ -221,7 +224,6 @@ class PatchDifferKarton(Karton):
             return None
 
         candidates = []
-        import itertools
 
         for sample in itertools.islice(self.mwdb.search_files(query), 50):
             # Get version attribute
@@ -242,9 +244,8 @@ class PatchDifferKarton(Karton):
 
             if version_attr:
                 cand_ver = self._parse_version(version_attr)
-                # Accept strictly older, or same version but different SHA
-                if cand_ver and (cand_ver < target_ver or
-                               (cand_ver == target_ver and sample.sha256 != info.sha256)):
+                # Accept strictly older versions only
+                if cand_ver and cand_ver < target_ver:
                     candidates.append((cand_ver, sample))
 
         if not candidates:
@@ -363,8 +364,11 @@ class PatchDifferKarton(Karton):
         timeout = int(os.environ.get("AUTOPIFF_GHIDRA_TIMEOUT", "2400"))
 
         try:
-            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                          timeout=timeout)
+            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  timeout=timeout)
+            if proc.returncode != 0:
+                logger.warning(f"Ghidra exited with code {proc.returncode} for {filename}")
+                logger.debug(f"Ghidra stderr: {proc.stderr.decode(errors='replace')[:2000]}")
         except subprocess.TimeoutExpired:
             logger.error(f"Ghidra timed out for {filename}")
             return None
@@ -408,7 +412,6 @@ class PatchDifferKarton(Karton):
         funcs = []
         current_func = None
         current_code = []
-        parse_order = 0
 
         with open(file_path, 'r', errors='ignore') as f:
             for line in f:
@@ -417,16 +420,10 @@ class PatchDifferKarton(Karton):
                     if len(parts) > 1:
                         meta = parts[1].strip().split("@")
                         raw_name = meta[0].strip()
-
-                        # Normalize generic names
-                        if raw_name.startswith(("FUN_", "sub_", "undefined")):
-                            func_name = f"sub_{parse_order:04d}"
-                        else:
-                            func_name = raw_name
-
-                        current_func = func_name
+                        # Keep original names (including FUN_/sub_ with address)
+                        # to preserve cross-binary matching via address similarity
+                        current_func = raw_name
                         current_code = []
-                        parse_order += 1
 
                 elif line.startswith("// FUNCTION_END"):
                     if current_func:
@@ -499,7 +496,6 @@ class PatchDifferKarton(Karton):
     def _align_functions(self, old_funcs: List[Tuple[str, str]],
                         new_funcs: List[Tuple[str, str]]) -> Tuple[Dict[str, str], Dict[str, str]]:
         """Align functions using hash-based LCS algorithm."""
-        import uuid
 
         def get_hash(code):
             return hashlib.md5(code.encode('utf-8')).hexdigest()
@@ -671,8 +667,18 @@ class PatchDifferKarton(Karton):
             base_w = rule_base.get(delta.get('rule_id', ''), 3.0)
             semantic_total = base_w * semantic_confidence * cat_mult.get(delta.get('category', ''), 1.0)
 
-            # Reachability (heuristic from function code context)
-            reach_class = "unknown"
+            # Reachability: use per-delta reachability_class if set by Stage 5,
+            # otherwise use surface_area heuristic as a proxy
+            reach_class = delta.get('reachability_class', None)
+            if not reach_class:
+                # Heuristic: if surface_area includes 'ioctl', approximate as ioctl
+                surfaces = delta.get('surface_area', [])
+                if 'ioctl' in surfaces:
+                    reach_class = 'ioctl'
+                elif any(s in surfaces for s in ['ndis', 'storage', 'filesystem']):
+                    reach_class = 'irp'
+                else:
+                    reach_class = 'unknown'
             reach_total = reach_bonus_map.get(reach_class, 0.0)
 
             reach_soft_min = gating.get('reachability_confidence', {}).get('soft_min', 0.55)
@@ -722,20 +728,20 @@ class PatchDifferKarton(Karton):
         return scored[:max_findings]
 
     def _classify_surface(self, code: str) -> List[str]:
-        """Classify attack surface area."""
+        """Classify attack surface area. Delegates to rule engine if available."""
+        if self.rule_engine:
+            return self.rule_engine.classify_surface_area(code)
         surfaces = []
         code_lower = code.lower()
-
         if any(s in code_lower for s in ['irp_mj_device_control', 'iocontrolcode',
                                           'systembuffer', 'type3inputbuffer']):
             surfaces.append('ioctl')
-        if any(s in code_lower for s in ['ndis', 'miniportoidrequest']):
+        if any(s in code_lower for s in ['ndis', 'miniportoidrequest', 'filteroidrequest']):
             surfaces.append('ndis')
         if any(s in code_lower for s in ['storport', 'scsi', 'srb']):
             surfaces.append('storage')
-        if any(s in code_lower for s in ['flt', 'fsctl']):
+        if any(s in code_lower for s in ['flt', 'fsctl', 'irp_mj_create', 'irp_mj_read', 'irp_mj_write']):
             surfaces.append('filesystem')
-
         return surfaces if surfaces else ['unknown']
 
     def _fallback_pattern_detection(self, diff_lines: List[str]) -> List[Dict]:
@@ -923,8 +929,8 @@ class PatchDifferKarton(Karton):
                 if new_info.arch != "Unknown":
                     try:
                         self.mwdb.file(sha256).add_tag(f"arch:{new_info.arch.lower()}")
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Failed to tag arch: {e}")
 
                 # Find prior version
                 old_sample = self._find_closest_prior_version(new_info)
@@ -996,21 +1002,23 @@ class PatchDifferKarton(Karton):
                 # Tag original sample
                 try:
                     self.mwdb.file(sha256).add_tag("autopiff_analyzed")
-                except:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to tag autopiff_analyzed: {e}")
 
                 # Send to Stage 5 (Reachability)
-                out_task = task.derive_task({
-                    "semantic_deltas": deltas_result
-                })
+                out_task = Task(
+                    headers={"type": "autopiff", "kind": "semantic_deltas"},
+                    payload={
+                        "semantic_deltas": deltas_result
+                    }
+                )
+                out_task.add_resource("sample", sample_resource)
                 self.send_task(out_task)
 
                 logger.info("Analysis complete, sent to Stage 5")
 
         except Exception as e:
-            logger.error(f"Analysis failed: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Analysis failed: {e}", exc_info=True)
 
 
 if __name__ == "__main__":

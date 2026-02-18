@@ -1,12 +1,3 @@
-Perfect 👍 — **conservative is exactly right** for AutoPiff v1.
-
-Below is a **clean, authoritative, agent-executable** draft of
-`docs/semantic_rules.md`, explicitly tuned for **high precision / low noise**.
-
-This document *strictly controls* what can appear in the report you just locked down.
-
----
-
 # AutoPiff – Semantic Rule Specification (v1, Conservative)
 
 ## Purpose

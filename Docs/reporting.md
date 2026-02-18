@@ -1,8 +1,3 @@
-Got it — I’ll **clean this up structurally and stylistically**, without changing intent or scope.
-Below is a **polished, consistent, agent-ready** version you can drop in as `docs/reporting.md`.
-
----
-
 # AutoPiff – Reporting & Output Specification
 
 ## Purpose

@@ -179,6 +179,18 @@ class SemanticRuleEngine:
 
         return detected
 
+    def _find_guard_lines(self, diff_lines: List[str], guard_type: str) -> List[int]:
+        """Find line numbers where a specific guard type appears in added lines."""
+        guard_lines = []
+        patterns = self.guard_patterns.get(guard_type, [])
+        for i, line in enumerate(diff_lines):
+            if line.startswith('+') and not line.startswith('+++'):
+                for p in patterns:
+                    if p.search(line):
+                        guard_lines.append(i)
+                        break
+        return guard_lines
+
     def _check_proximity(self, guard_line: int, sink_line: int, proximity: str) -> bool:
         """Check if guard is in required proximity to sink."""
         distance = abs(guard_line - sink_line)
@@ -190,7 +202,7 @@ class SemanticRuleEngine:
             return -10 <= (guard_line - sink_line) < 0
         return True
 
-    def _classify_surface_area(self, code: str) -> List[str]:
+    def classify_surface_area(self, code: str) -> List[str]:
         """Classify the attack surface area of the code."""
         surfaces = []
         code_lower = code.lower()
@@ -283,8 +295,26 @@ class SemanticRuleEngine:
                 matched_indicators.extend(guards[value])
 
             elif key == 'proximity':
-                # Check proximity (simplified - assume pass if we have matching sinks and guards)
-                pass
+                # Check that at least one guard is near at least one sink
+                if not sinks or not guards:
+                    return None
+                # Find line numbers for detected guard types
+                all_guard_lines = []
+                for gtype in guards:
+                    all_guard_lines.extend(self._find_guard_lines(diff_lines, gtype))
+                if not all_guard_lines:
+                    return None
+                # Check if any guard-sink pair satisfies the proximity constraint
+                proximity_met = False
+                for guard_line in all_guard_lines:
+                    for sink in sinks:
+                        if self._check_proximity(guard_line, sink.line_num, value):
+                            proximity_met = True
+                            break
+                    if proximity_met:
+                        break
+                if not proximity_met:
+                    return None
 
         # If we get here, rule matched
         diff_snippet = '\n'.join(diff_lines[:30])  # First 30 lines

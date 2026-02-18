@@ -26,6 +26,7 @@ rules:
       - sink_group: memory_copy
       - change_type: guard_added
       - guard_kind: length_check
+      - proximity: near_sink
     plain_english_summary: Added a length check before memory copy.
 
   - rule_id: probe_for_read_or_write_added
@@ -223,22 +224,22 @@ class TestSurfaceClassification:
 
     def test_classify_ioctl(self, rule_engine):
         code = "case IRP_MJ_DEVICE_CONTROL: IoControlCode = stack->Parameters.DeviceIoControl.IoControlCode;"
-        surfaces = rule_engine._classify_surface_area(code)
+        surfaces = rule_engine.classify_surface_area(code)
         assert "ioctl" in surfaces
 
     def test_classify_ndis(self, rule_engine):
         code = "NdisMIndicateReceiveNetBufferLists(adapter, nbl, 0, count, 0);"
-        surfaces = rule_engine._classify_surface_area(code)
+        surfaces = rule_engine.classify_surface_area(code)
         assert "ndis" in surfaces
 
     def test_classify_storage(self, rule_engine):
         code = "StorPortNotification(RequestComplete, hwDevice, srb);"
-        surfaces = rule_engine._classify_surface_area(code)
+        surfaces = rule_engine.classify_surface_area(code)
         assert "storage" in surfaces
 
     def test_classify_unknown(self, rule_engine):
         code = "int x = calculate(a, b);"
-        surfaces = rule_engine._classify_surface_area(code)
+        surfaces = rule_engine.classify_surface_area(code)
         assert surfaces == ["unknown"]
 
 

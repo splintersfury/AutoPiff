@@ -129,9 +129,12 @@ services:
     build:
       context: .
       dockerfile: services/karton-patch-differ/Dockerfile
+    restart: unless-stopped
     depends_on:
-      - karton-system
-      - mwdb-core
+      karton-system:
+        condition: service_started
+      mwdb-core:
+        condition: service_healthy
     environment:
       KARTON_REDIS_HOST: karton-redis
       KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
@@ -157,9 +160,12 @@ services:
     build:
       context: .
       dockerfile: services/karton-reachability/Dockerfile
+    restart: unless-stopped
     depends_on:
-      - karton-system
-      - mwdb-core
+      karton-system:
+        condition: service_started
+      mwdb-core:
+        condition: service_healthy
     environment:
       KARTON_REDIS_HOST: karton-redis
       KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
