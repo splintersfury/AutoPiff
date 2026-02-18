@@ -28,6 +28,11 @@ ghidra_*/
 .cache/
 tmp/
 
+# Node.js / Next.js
+node_modules/
+.next/
+out/
+
 # Docker volumes (if local)
 mwdb-uploads/
 minio-data/

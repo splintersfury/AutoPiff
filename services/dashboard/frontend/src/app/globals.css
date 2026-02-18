@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --border: 220 13% 91%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 224 71% 4%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 210 20% 98%;
+    --card: 224 71% 4%;
+    --card-foreground: 210 20% 98%;
+    --border: 215 28% 17%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 217 33% 60%;
+    --accent: 215 28% 17%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 20% 98%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Diff snippet styling */
+.diff-line-add {
+  @apply bg-green-50 text-green-900;
+}
+.diff-line-remove {
+  @apply bg-red-50 text-red-900;
+}
+.diff-line-context {
+  @apply text-gray-600;
+}
+.diff-line-header {
+  @apply text-blue-600 bg-blue-50;
+}
+
+.dark .diff-line-add {
+  @apply bg-green-900/30 text-green-300;
+}
+.dark .diff-line-remove {
+  @apply bg-red-900/30 text-red-300;
+}
+.dark .diff-line-context {
+  @apply text-gray-400;
+}
+.dark .diff-line-header {
+  @apply text-blue-400 bg-blue-900/30;
+}
