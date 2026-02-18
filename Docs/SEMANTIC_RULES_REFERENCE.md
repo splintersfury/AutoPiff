@@ -106,6 +106,8 @@ Each rule belongs to exactly one category. Categories group related vulnerabilit
 +     return STATUS_BUFFER_TOO_SMALL;
 ```
 
+**Why it matters:** When a driver reads a complex structure from an IOCTL input buffer without first verifying the buffer is large enough, it can read past the end of the allocation. Depending on context this yields either an information leak (reading adjacent pool data), a kernel pool corruption (writing response data past the buffer), or a controlled out-of-bounds read that feeds attacker data into subsequent logic. The `sizeof` check is the standard idiom to prevent this entire class of issues.
+
 ---
 
 #### `added_index_bounds_check`
@@ -126,6 +128,8 @@ Each rule belongs to exactly one category. Categories group related vulnerabilit
 +     return STATUS_INVALID_PARAMETER;
   table[idx] = value;
 ```
+
+**Why it matters:** Unchecked array or table indices supplied from user-controlled input (IOCTL buffers, IRP parameters) allow an attacker to read or write at an arbitrary offset relative to the base of the array. In kernel pool memory, this is a direct primitive for pool corruption, arbitrary write, or information disclosure depending on the access pattern.
 
 ---
 
@@ -173,6 +177,8 @@ Each rule belongs to exactly one category. Categories group related vulnerabilit
 + }
 ```
 
+**Why it matters:** Double-free vulnerabilities occur when a driver frees the same pool allocation twice. The Windows kernel pool allocator may have already reassigned that memory to another object, so freeing it again corrupts the pool metadata or destroys a live object. Attackers exploit this by spraying controlled objects into the freed slot between the first and second free, gaining arbitrary write or code execution. The NULL guard breaks the double-free chain entirely.
+
 ---
 
 ### User/Kernel Boundary Rules
@@ -218,6 +224,8 @@ Each rule belongs to exactly one category. Categories group related vulnerabilit
 + }
 ```
 
+**Why it matters:** Without previous-mode checking, a driver treats all callers identically. An attacker in user-mode can invoke a kernel path that was designed to only be called by other kernel components, bypassing trust assumptions. The classic exploitation pattern is supplying kernel-mode addresses through an IOCTL that skips `ProbeForRead`/`ProbeForWrite` because it assumed the caller was already in kernel mode. Adding `ExGetPreviousMode` gating ensures user-mode callers go through the full validation path.
+
 ---
 
 #### `seh_guard_added_around_user_deref`
@@ -230,6 +238,18 @@ Each rule belongs to exactly one category. Categories group related vulnerabilit
 | Required Signals | `sink_group: exceptions`, `change_type: validation_added`, `validation_kind: seh_guard` |
 
 **What it detects:** Structured exception handling (`__try`/`__except`) was added around pointer access, typically to safely handle user-mode pointer dereferences.
+
+**Example patch:**
+```c
+// ADDED:
++ __try {
+      value = *(PULONG)userPointer;
++ } __except(EXCEPTION_EXECUTE_HANDLER) {
++     return GetExceptionCode();
++ }
+```
+
+**Why it matters:** When a kernel driver dereferences a user-supplied pointer without SEH, the user can supply an invalid address (unmapped, paged-out, or a kernel address) causing an unhandled exception that blue-screens the system (denial of service) or, worse, is exploitable through controlled fault handling. Wrapping user pointer access in `__try`/`__except` ensures the driver gracefully handles invalid pointers instead of crashing. This is especially critical for `METHOD_NEITHER` IOCTLs where the driver receives raw user-mode pointers.
 
 ---
 
@@ -270,6 +290,17 @@ Each rule belongs to exactly one category. Categories group related vulnerabilit
 
 **What it detects:** An overflow or size check was added before a pool allocation (`ExAllocatePool*`).
 
+**Example patch:**
+```c
+// ADDED:
++ if (count > ULONG_MAX / elementSize)
++     return STATUS_INTEGER_OVERFLOW;
+  totalSize = count * elementSize;
+  buffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, totalSize, 'fooB');
+```
+
+**Why it matters:** If an attacker controls `count` or `elementSize` through an IOCTL, they can trigger an integer overflow in the multiplication so that `totalSize` wraps to a small value. The kernel then allocates a tiny buffer while the driver proceeds to fill it with `count * elementSize` bytes of data, causing a heap buffer overflow. These are among the most reliably exploitable kernel vulnerabilities because the attacker controls both the overflow amount and the data written. Adding an explicit overflow check before allocation completely prevents this class of attack.
+
 ---
 
 ### State Hardening Rules
@@ -284,6 +315,19 @@ Each rule belongs to exactly one category. Categories group related vulnerabilit
 | Required Signals | `sink_group: refcounting`, `change_type: hardening_added`, `hardening_kind: refcount` |
 
 **What it detects:** `InterlockedIncrement`/`InterlockedDecrement`/`InterlockedExchange`/`InterlockedCompareExchange` operations were added to protect shared object lifetime.
+
+**Example patch:**
+```c
+// ADDED:
++ InterlockedIncrement(&pObject->RefCount);
+  UseObject(pObject);
+  // ... later ...
++ if (InterlockedDecrement(&pObject->RefCount) == 0) {
++     ExFreePoolWithTag(pObject, 'jbO');
++ }
+```
+
+**Why it matters:** Without atomic reference counting, concurrent access from multiple threads or IRP handlers can create a race condition: one thread frees an object while another is still using it, producing a use-after-free. In kernel drivers, this is particularly dangerous because IRP dispatch routines, DPC callbacks, and work items can execute concurrently on different processors. Adding `Interlocked*` operations ensures the reference count is modified atomically, preventing the race. This has lower confidence (0.78) than other rules because interlocked operations are also used for benign concurrency patterns that are not security-relevant.
 
 ---
 
