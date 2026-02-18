@@ -1,9 +1,11 @@
-# AutoPiff semantic rules (v1 conservative)
+# AutoPiff semantic rules (v2 comprehensive)
 # Rules are designed for high precision and explainability.
 # Each rule must map cleanly to report fields: category, why, indicators, diff_hint.
+# v2: expanded from 11 rules / 5 categories to 58 rules / 22 categories.
 
-version: 1
+version: 2
 categories:
+  # --- Original categories ---
   - id: bounds_check
     description: Added or strengthened bounds/size/index validation.
   - id: lifetime_fix
@@ -14,10 +16,48 @@ categories:
     description: Added or strengthened safe integer/size arithmetic checks.
   - id: state_hardening
     description: Added or strengthened state/refcount/synchronization validation.
+  # --- New categories (v2) ---
+  - id: race_condition
+    description: Added synchronization to fix race conditions or TOCTOU bugs.
+  - id: type_confusion
+    description: Added type validation to prevent type confusion or wrong-object access.
+  - id: authorization
+    description: Added privilege, access mode, or ACL enforcement.
+  - id: info_disclosure
+    description: Added memory initialization or pointer scrubbing to prevent information leaks.
+  - id: ioctl_hardening
+    description: Added IOCTL-specific input validation or dispatch hardening.
+  - id: mdl_handling
+    description: Added safe MDL mapping, probe, or NULL checks.
+  - id: object_management
+    description: Added object reference balancing or handle access enforcement.
+  - id: string_handling
+    description: Replaced unsafe string operations with bounded variants.
+  - id: pool_hardening
+    description: Migrated to safer pool APIs or added pool allocation checks.
+  - id: crypto_hardening
+    description: Added secure memory wiping or constant-time comparisons.
+  - id: error_path_hardening
+    description: Added resource cleanup or correct status propagation on error paths.
+  - id: dos_hardening
+    description: Added recursion/loop bounds or resource quota checks to prevent DoS.
+  - id: ndis_hardening
+    description: Added NDIS OID/NBL validation for network driver security.
+  - id: filesystem_filter
+    description: Added minifilter context management or TOCTOU mitigations.
+  - id: pnp_power
+    description: Added PnP removal or power state guards.
+  - id: dma_mmio
+    description: Added MMIO/DMA bounds validation or mapping checks.
+  - id: wdf_hardening
+    description: Added WDF request buffer or completion guards.
 
 rules:
 
-  # --- Bounds & size validation (high precision) ---
+  # ==========================================================================
+  # Bounds & size validation (original, high precision)
+  # ==========================================================================
+
   - rule_id: added_len_check_before_memcpy
     category: bounds_check
     confidence: 0.92
@@ -64,7 +104,10 @@ rules:
       added_checks:
         - index_bounds
 
-  # --- Lifetime fixes (high precision) ---
+  # ==========================================================================
+  # Lifetime fixes (original, high precision)
+  # ==========================================================================
+
   - rule_id: null_after_free_added
     category: lifetime_fix
     confidence: 0.88
@@ -101,7 +144,10 @@ rules:
       added_checks:
         - null_check
 
-  # --- User/kernel boundary validation (high precision) ---
+  # ==========================================================================
+  # User/kernel boundary validation (original, high precision)
+  # ==========================================================================
+
   - rule_id: probe_for_read_or_write_added
     category: user_boundary_check
     confidence: 0.93
@@ -153,7 +199,10 @@ rules:
       added_checks:
         - seh_guard
 
-  # --- Integer overflow / size arithmetic hardening ---
+  # ==========================================================================
+  # Integer overflow / size arithmetic hardening (original)
+  # ==========================================================================
+
   - rule_id: safe_size_math_helper_added
     category: int_overflow
     confidence: 0.88
@@ -189,7 +238,10 @@ rules:
       added_checks:
         - overflow_check
 
-  # --- State hardening (kept conservative) ---
+  # ==========================================================================
+  # State hardening (original, kept conservative)
+  # ==========================================================================
+
   - rule_id: interlocked_refcount_added
     category: state_hardening
     confidence: 0.78
@@ -206,6 +258,836 @@ rules:
         - refcounting
       added_checks:
         - refcount_hardening
+
+  # ==========================================================================
+  # NEW: Race condition rules
+  # ==========================================================================
+
+  - rule_id: spinlock_acquisition_added
+    category: race_condition
+    confidence: 0.80
+    required_signals:
+      - sink_group: synchronization
+      - change_type: hardening_added
+      - hardening_kind: spinlock
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added spinlock acquisition to protect shared data from concurrent access.
+    report:
+      sinks:
+        - synchronization
+      added_checks:
+        - spinlock
+
+  - rule_id: mutex_or_resource_lock_added
+    category: race_condition
+    confidence: 0.82
+    required_signals:
+      - sink_group: synchronization
+      - change_type: hardening_added
+      - hardening_kind: mutex_resource
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added mutex or executive resource lock to protect shared state.
+    report:
+      sinks:
+        - synchronization
+      added_checks:
+        - mutex_resource
+
+  - rule_id: double_fetch_to_capture_fix
+    category: race_condition
+    confidence: 0.85
+    required_signals:
+      - change_type: hardening_added
+      - hardening_kind: buffer_capture
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Fixed double-fetch TOCTOU by capturing user buffer value into local variable.
+    report:
+      added_checks:
+        - buffer_capture
+
+  - rule_id: cancel_safe_irp_queue_added
+    category: race_condition
+    confidence: 0.78
+    required_signals:
+      - sink_group: irp_cancel
+      - change_type: hardening_added
+      - hardening_kind: cancel_safe
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Replaced manual IRP cancellation with cancel-safe queue to fix IRP race.
+    report:
+      sinks:
+        - irp_cancel
+      added_checks:
+        - cancel_safe
+
+  # ==========================================================================
+  # NEW: Type confusion rules
+  # ==========================================================================
+
+  - rule_id: object_type_validation_added
+    category: type_confusion
+    confidence: 0.88
+    required_signals:
+      - change_type: guard_added
+      - guard_kind: object_type_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added object type tag validation before struct access or vtable dispatch.
+    report:
+      added_checks:
+        - object_type_check
+
+  - rule_id: handle_object_type_check_added
+    category: type_confusion
+    confidence: 0.92
+    required_signals:
+      - sink_group: handle_validation
+      - change_type: guard_added
+      - guard_kind: handle_type_validation
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added ObjectType parameter to ObReferenceObjectByHandle to prevent handle type confusion.
+    report:
+      sinks:
+        - handle_validation
+      added_checks:
+        - handle_type_validation
+
+  - rule_id: wow64_thunk_validation_added
+    category: type_confusion
+    confidence: 0.85
+    required_signals:
+      - change_type: guard_added
+      - guard_kind: wow64_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added IoIs32bitProcess check to handle WOW64 struct layout differences.
+    report:
+      added_checks:
+        - wow64_check
+
+  # ==========================================================================
+  # NEW: Authorization rules
+  # ==========================================================================
+
+  - rule_id: privilege_check_added
+    category: authorization
+    confidence: 0.90
+    required_signals:
+      - sink_group: authorization
+      - change_type: validation_added
+      - validation_kind: privilege_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added SeSinglePrivilegeCheck or SeAccessCheck to enforce authorization.
+    report:
+      sinks:
+        - authorization
+      added_checks:
+        - privilege_check
+
+  - rule_id: access_mode_enforcement_added
+    category: authorization
+    confidence: 0.93
+    required_signals:
+      - change_type: validation_added
+      - validation_kind: access_mode_fix
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Fixed access mode mismatch by using caller's actual RequestorMode instead of KernelMode.
+    report:
+      added_checks:
+        - access_mode_fix
+
+  - rule_id: device_acl_hardening
+    category: authorization
+    confidence: 0.90
+    required_signals:
+      - sink_group: device_security
+      - change_type: hardening_added
+      - hardening_kind: device_acl
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Hardened device object ACL by using IoCreateDeviceSecure or FILE_DEVICE_SECURE_OPEN.
+    report:
+      sinks:
+        - device_security
+      added_checks:
+        - device_acl
+
+  - rule_id: registry_access_mask_hardened
+    category: authorization
+    confidence: 0.82
+    required_signals:
+      - sink_group: handle_validation
+      - change_type: hardening_added
+      - hardening_kind: access_mask_reduction
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Reduced registry key access mask from KEY_ALL_ACCESS to least-privilege.
+    report:
+      sinks:
+        - handle_validation
+      added_checks:
+        - access_mask_reduction
+
+  # ==========================================================================
+  # NEW: Information disclosure rules
+  # ==========================================================================
+
+  - rule_id: buffer_zeroing_before_copy_added
+    category: info_disclosure
+    confidence: 0.90
+    required_signals:
+      - sink_group: memory_zeroing
+      - change_type: validation_added
+      - validation_kind: buffer_zeroing
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added RtlZeroMemory before populating output buffer to prevent kernel memory disclosure.
+    report:
+      sinks:
+        - memory_zeroing
+      added_checks:
+        - buffer_zeroing
+
+  - rule_id: stack_variable_initialization_added
+    category: info_disclosure
+    confidence: 0.85
+    required_signals:
+      - change_type: hardening_added
+      - hardening_kind: buffer_zeroing
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added zero initialization to stack variables to prevent uninitialized memory disclosure.
+    report:
+      added_checks:
+        - buffer_zeroing
+
+  - rule_id: output_length_truncation_added
+    category: info_disclosure
+    confidence: 0.82
+    required_signals:
+      - sink_group: irp_completion
+      - change_type: guard_added
+      - guard_kind: length_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Corrected IoStatus.Information to report only initialized bytes, preventing stale data leak.
+    report:
+      sinks:
+        - irp_completion
+      added_checks:
+        - length_check
+
+  - rule_id: kernel_pointer_scrubbing_added
+    category: info_disclosure
+    confidence: 0.88
+    required_signals:
+      - change_type: hardening_added
+      - hardening_kind: pointer_scrub
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Scrubbed or removed kernel pointer from user-accessible output buffer (KASLR bypass fix).
+    report:
+      added_checks:
+        - pointer_scrub
+
+  # ==========================================================================
+  # NEW: IOCTL hardening rules
+  # ==========================================================================
+
+  - rule_id: method_neither_probe_added
+    category: ioctl_hardening
+    confidence: 0.93
+    required_signals:
+      - sink_group: user_probe
+      - change_type: validation_added
+      - validation_kind: probe
+      - sink_group: exceptions
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added ProbeForRead/ProbeForWrite with SEH for METHOD_NEITHER IOCTL buffer access.
+    report:
+      sinks:
+        - user_probe
+        - exceptions
+      added_checks:
+        - probe_for_read_write
+        - seh_guard
+
+  - rule_id: ioctl_input_size_validation_added
+    category: ioctl_hardening
+    confidence: 0.92
+    required_signals:
+      - change_type: guard_added
+      - guard_kind: sizeof_check
+      - guard_kind: length_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added InputBufferLength/OutputBufferLength size validation in IOCTL handler.
+    report:
+      added_checks:
+        - sizeof_check
+        - length_check
+
+  - rule_id: ioctl_code_default_case_added
+    category: ioctl_hardening
+    confidence: 0.70
+    required_signals:
+      - change_type: hardening_added
+      - hardening_kind: default_case
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added default case with error return to IOCTL dispatch switch statement.
+    report:
+      added_checks:
+        - default_case
+
+  # ==========================================================================
+  # NEW: MDL handling rules
+  # ==========================================================================
+
+  - rule_id: mdl_safe_mapping_replacement
+    category: mdl_handling
+    confidence: 0.88
+    required_signals:
+      - sink_group: mdl_operations
+      - change_type: hardening_added
+      - hardening_kind: mdl_safe
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Replaced unsafe MmGetSystemAddressForMdl with MmGetSystemAddressForMdlSafe.
+    report:
+      sinks:
+        - mdl_operations
+      added_checks:
+        - mdl_safe
+
+  - rule_id: mdl_probe_access_mode_fix
+    category: mdl_handling
+    confidence: 0.93
+    required_signals:
+      - sink_group: mdl_operations
+      - change_type: validation_added
+      - validation_kind: access_mode_fix
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Fixed MmProbeAndLockPages AccessMode from KernelMode to UserMode to enforce address validation.
+    report:
+      sinks:
+        - mdl_operations
+      added_checks:
+        - access_mode_fix
+
+  - rule_id: mdl_null_check_added
+    category: mdl_handling
+    confidence: 0.84
+    required_signals:
+      - sink_group: mdl_operations
+      - change_type: guard_added
+      - guard_kind: null_check
+      - proximity: near_sink
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added NULL check on Irp->MdlAddress before MDL mapping operations.
+    report:
+      sinks:
+        - mdl_operations
+      added_checks:
+        - null_check
+
+  # ==========================================================================
+  # NEW: Object management rules
+  # ==========================================================================
+
+  - rule_id: ob_reference_balance_fix
+    category: object_management
+    confidence: 0.86
+    required_signals:
+      - sink_group: object_management
+      - change_type: hardening_added
+      - hardening_kind: reference_balance
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added ObDereferenceObject on error path to fix reference count leak.
+    report:
+      sinks:
+        - object_management
+      added_checks:
+        - reference_balance
+
+  - rule_id: handle_force_access_check_added
+    category: object_management
+    confidence: 0.90
+    required_signals:
+      - sink_group: handle_validation
+      - change_type: hardening_added
+      - hardening_kind: force_access_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added OBJ_FORCE_ACCESS_CHECK flag to enforce access checks on handle operations.
+    report:
+      sinks:
+        - handle_validation
+      added_checks:
+        - force_access_check
+
+  # ==========================================================================
+  # NEW: String handling rules
+  # ==========================================================================
+
+  - rule_id: safe_string_function_replacement
+    category: string_handling
+    confidence: 0.88
+    required_signals:
+      - sink_group: string_copy
+      - change_type: hardening_added
+      - hardening_kind: safe_string_replacement
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Replaced unsafe string function (wcscpy/strcpy/strcat) with bounded RtlStringCb*/RtlStringCch* variant.
+    report:
+      sinks:
+        - string_copy
+      added_checks:
+        - safe_string_replacement
+
+  - rule_id: unicode_string_length_validation_added
+    category: string_handling
+    confidence: 0.86
+    required_signals:
+      - change_type: guard_added
+      - guard_kind: length_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added UNICODE_STRING Length vs MaximumLength validation or alignment check.
+    report:
+      added_checks:
+        - length_check
+
+  # ==========================================================================
+  # NEW: Pool hardening rules
+  # ==========================================================================
+
+  - rule_id: pool_type_nx_migration
+    category: pool_hardening
+    confidence: 0.85
+    required_signals:
+      - sink_group: pool_alloc
+      - change_type: hardening_added
+      - hardening_kind: pool_type_hardening
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Migrated pool allocation from executable NonPagedPool to NonPagedPoolNx.
+    report:
+      sinks:
+        - pool_alloc
+      added_checks:
+        - pool_type_hardening
+
+  - rule_id: deprecated_pool_api_replacement
+    category: pool_hardening
+    confidence: 0.80
+    required_signals:
+      - sink_group: pool_alloc
+      - change_type: hardening_added
+      - hardening_kind: pool_type_hardening
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Replaced deprecated ExAllocatePoolWithTag with ExAllocatePool2 (zeros memory by default).
+    report:
+      sinks:
+        - pool_alloc
+      added_checks:
+        - pool_type_hardening
+
+  - rule_id: pool_allocation_null_check_added
+    category: pool_hardening
+    confidence: 0.78
+    required_signals:
+      - sink_group: pool_alloc
+      - change_type: guard_added
+      - guard_kind: null_check
+      - proximity: near_sink
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added NULL check after pool allocation to prevent NULL dereference.
+    report:
+      sinks:
+        - pool_alloc
+      added_checks:
+        - null_check
+
+  # ==========================================================================
+  # NEW: Crypto hardening rules
+  # ==========================================================================
+
+  - rule_id: secure_zero_memory_added
+    category: crypto_hardening
+    confidence: 0.82
+    required_signals:
+      - sink_group: memory_zeroing
+      - change_type: hardening_added
+      - hardening_kind: secure_zero
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added RtlSecureZeroMemory to wipe sensitive data before freeing (non-optimizable zeroing).
+    report:
+      sinks:
+        - memory_zeroing
+      added_checks:
+        - secure_zero
+
+  - rule_id: constant_time_comparison_added
+    category: crypto_hardening
+    confidence: 0.80
+    required_signals:
+      - change_type: hardening_added
+      - hardening_kind: constant_time_compare
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Replaced early-exit comparison with constant-time XOR-accumulate pattern.
+    report:
+      added_checks:
+        - constant_time_compare
+
+  # ==========================================================================
+  # NEW: Error path hardening rules
+  # ==========================================================================
+
+  - rule_id: error_path_cleanup_added
+    category: error_path_hardening
+    confidence: 0.80
+    required_signals:
+      - change_type: hardening_added
+      - hardening_kind: error_cleanup
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added resource cleanup (free/release/dereference) on error path to prevent leaks.
+    report:
+      added_checks:
+        - error_cleanup
+
+  - rule_id: goto_cleanup_pattern_added
+    category: error_path_hardening
+    confidence: 0.75
+    required_signals:
+      - change_type: hardening_added
+      - hardening_kind: goto_cleanup
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added centralized goto-cleanup pattern replacing direct error returns.
+    report:
+      added_checks:
+        - goto_cleanup
+
+  - rule_id: irp_completion_status_fix
+    category: error_path_hardening
+    confidence: 0.76
+    required_signals:
+      - sink_group: irp_completion
+      - change_type: hardening_added
+      - hardening_kind: completion_status_fix
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Fixed IRP completion to propagate correct status or prevent double completion.
+    report:
+      sinks:
+        - irp_completion
+      added_checks:
+        - completion_status_fix
+
+  # ==========================================================================
+  # NEW: DoS hardening rules
+  # ==========================================================================
+
+  - rule_id: recursion_depth_limit_added
+    category: dos_hardening
+    confidence: 0.82
+    required_signals:
+      - change_type: guard_added
+      - guard_kind: depth_limit
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added recursion depth limit or IoGetRemainingStackSize check to prevent stack exhaustion.
+    report:
+      added_checks:
+        - depth_limit
+
+  - rule_id: loop_iteration_bound_added
+    category: dos_hardening
+    confidence: 0.75
+    required_signals:
+      - change_type: guard_added
+      - guard_kind: index_bounds
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added iteration counter and max bound to loop to prevent infinite loop DoS.
+    report:
+      added_checks:
+        - index_bounds
+
+  - rule_id: resource_quota_check_added
+    category: dos_hardening
+    confidence: 0.80
+    required_signals:
+      - sink_group: pool_alloc
+      - change_type: guard_added
+      - guard_kind: length_check
+      - proximity: near_sink
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added upper bound check on user-supplied allocation size to prevent resource exhaustion.
+    report:
+      sinks:
+        - pool_alloc
+      added_checks:
+        - length_check
+
+  # ==========================================================================
+  # NEW: NDIS hardening rules
+  # ==========================================================================
+
+  - rule_id: oid_request_validation_added
+    category: ndis_hardening
+    confidence: 0.88
+    required_signals:
+      - sink_group: ndis_operations
+      - change_type: guard_added
+      - guard_kind: oid_validation
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added NULL and length validation for NDIS OID request InformationBuffer.
+    report:
+      sinks:
+        - ndis_operations
+      added_checks:
+        - oid_validation
+
+  - rule_id: nbl_chain_length_validation_added
+    category: ndis_hardening
+    confidence: 0.84
+    required_signals:
+      - sink_group: ndis_operations
+      - change_type: guard_added
+      - guard_kind: length_check
+      - proximity: near_sink
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added bounds check comparing NET_BUFFER_DATA_LENGTH against actual MDL byte count.
+    report:
+      sinks:
+        - ndis_operations
+      added_checks:
+        - length_check
+
+  # ==========================================================================
+  # NEW: Filesystem filter rules
+  # ==========================================================================
+
+  - rule_id: flt_context_reference_leak_fix
+    category: filesystem_filter
+    confidence: 0.84
+    required_signals:
+      - sink_group: filesystem_filter
+      - change_type: hardening_added
+      - hardening_kind: flt_context_release
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added FltReleaseContext on error/early-return path to fix minifilter context reference leak.
+    report:
+      sinks:
+        - filesystem_filter
+      added_checks:
+        - flt_context_release
+
+  - rule_id: flt_create_race_mitigation
+    category: filesystem_filter
+    confidence: 0.86
+    required_signals:
+      - sink_group: filesystem_filter
+      - change_type: hardening_added
+      - hardening_kind: buffer_capture
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Fixed TOCTOU in IRP_MJ_CREATE by capturing mapped buffer before validation.
+    report:
+      sinks:
+        - filesystem_filter
+      added_checks:
+        - buffer_capture
+
+  # ==========================================================================
+  # NEW: PnP/Power rules
+  # ==========================================================================
+
+  - rule_id: surprise_removal_guard_added
+    category: pnp_power
+    confidence: 0.78
+    required_signals:
+      - change_type: guard_added
+      - guard_kind: removal_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added device-removed flag check before I/O dispatch to prevent use-after-remove.
+    report:
+      added_checks:
+        - removal_check
+
+  - rule_id: power_state_validation_added
+    category: pnp_power
+    confidence: 0.74
+    required_signals:
+      - change_type: guard_added
+      - guard_kind: power_state_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added power state validation (PowerDeviceD0 check) before device I/O.
+    report:
+      added_checks:
+        - power_state_check
+
+  - rule_id: io_remove_lock_added
+    category: pnp_power
+    confidence: 0.80
+    required_signals:
+      - sink_group: pnp_power
+      - change_type: hardening_added
+      - hardening_kind: remove_lock
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added IoAcquireRemoveLock/IoReleaseRemoveLock to protect against PnP removal races.
+    report:
+      sinks:
+        - pnp_power
+      added_checks:
+        - remove_lock
+
+  # ==========================================================================
+  # NEW: DMA/MMIO rules
+  # ==========================================================================
+
+  - rule_id: mmio_mapping_bounds_validation_added
+    category: dma_mmio
+    confidence: 0.90
+    required_signals:
+      - sink_group: mmio_dma
+      - change_type: guard_added
+      - guard_kind: length_check
+      - proximity: near_sink
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added physical address range validation before MmMapIoSpace to prevent arbitrary memory mapping.
+    report:
+      sinks:
+        - mmio_dma
+      added_checks:
+        - length_check
+
+  - rule_id: dma_buffer_bounds_check_added
+    category: dma_mmio
+    confidence: 0.82
+    required_signals:
+      - sink_group: mmio_dma
+      - change_type: guard_added
+      - guard_kind: index_bounds
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added bounds check on indices used to access DMA-mapped memory regions.
+    report:
+      sinks:
+        - mmio_dma
+      added_checks:
+        - index_bounds
+
+  # ==========================================================================
+  # NEW: WDF hardening rules
+  # ==========================================================================
+
+  - rule_id: wdf_request_buffer_size_check_added
+    category: wdf_hardening
+    confidence: 0.88
+    required_signals:
+      - sink_group: wdf_operations
+      - change_type: guard_added
+      - guard_kind: sizeof_check
+      - proximity: near_sink
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Changed WdfRequestRetrieveInputBuffer MinimumRequiredLength from 0 to sizeof(struct).
+    report:
+      sinks:
+        - wdf_operations
+      added_checks:
+        - sizeof_check
+
+  - rule_id: wdf_request_completion_guard_added
+    category: wdf_hardening
+    confidence: 0.76
+    required_signals:
+      - sink_group: wdf_operations
+      - change_type: guard_added
+      - guard_kind: null_check
+    excluded_patterns:
+      - logging_only
+      - refactor_only
+    plain_english_summary: Added guard to prevent double completion of WDF request.
+    report:
+      sinks:
+        - wdf_operations
+      added_checks:
+        - null_check
 
 # Global exclusions used by semantic extractor
 global_exclusions:

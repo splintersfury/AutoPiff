@@ -1,12 +1,13 @@
-# AutoPiff scoring model (v1 conservative)
+# AutoPiff scoring model (v2 comprehensive)
 # Goal: rank findings by "worth a human's time" while minimizing noise.
 # Key principles:
 # - Reachability matters a lot (ioctl > irp > internal)
 # - Conservative semantic rules dominate score
 # - Pairing noise penalizes heavily
 # - Confidence gates everything (low confidence findings should not float to the top)
+# v2: expanded from 11 rules / 5 categories to 58 rules / 22 categories.
 
-version: 1
+version: 2
 
 # Global caps and thresholds
 gating:
@@ -32,6 +33,7 @@ weights:
   # Semantic rule contributions: this is the backbone of ranking.
   # Weights reflect conservative belief about "this looks like a vuln fix".
   semantic_rule_base:
+    # --- Original rules (v1) ---
     added_len_check_before_memcpy: 6.0
     added_struct_size_validation: 4.5
     added_index_bounds_check: 4.0
@@ -48,13 +50,113 @@ weights:
 
     interlocked_refcount_added: 3.0
 
+    # --- Race condition rules ---
+    spinlock_acquisition_added: 3.5
+    mutex_or_resource_lock_added: 3.5
+    double_fetch_to_capture_fix: 5.0
+    cancel_safe_irp_queue_added: 3.0
+
+    # --- Type confusion rules ---
+    object_type_validation_added: 5.0
+    handle_object_type_check_added: 5.5
+    wow64_thunk_validation_added: 4.5
+
+    # --- Authorization rules ---
+    privilege_check_added: 5.5
+    access_mode_enforcement_added: 6.0
+    device_acl_hardening: 4.0
+    registry_access_mask_hardened: 3.0
+
+    # --- Information disclosure rules ---
+    buffer_zeroing_before_copy_added: 4.5
+    stack_variable_initialization_added: 3.5
+    output_length_truncation_added: 3.5
+    kernel_pointer_scrubbing_added: 5.0
+
+    # --- IOCTL hardening rules ---
+    method_neither_probe_added: 6.0
+    ioctl_input_size_validation_added: 5.0
+    ioctl_code_default_case_added: 2.0
+
+    # --- MDL handling rules ---
+    mdl_safe_mapping_replacement: 4.0
+    mdl_probe_access_mode_fix: 6.0
+    mdl_null_check_added: 3.5
+
+    # --- Object management rules ---
+    ob_reference_balance_fix: 4.0
+    handle_force_access_check_added: 5.0
+
+    # --- String handling rules ---
+    safe_string_function_replacement: 3.5
+    unicode_string_length_validation_added: 4.0
+
+    # --- Pool hardening rules ---
+    pool_type_nx_migration: 3.0
+    deprecated_pool_api_replacement: 2.5
+    pool_allocation_null_check_added: 2.5
+
+    # --- Crypto hardening rules ---
+    secure_zero_memory_added: 3.0
+    constant_time_comparison_added: 3.5
+
+    # --- Error path hardening rules ---
+    error_path_cleanup_added: 3.0
+    goto_cleanup_pattern_added: 2.5
+    irp_completion_status_fix: 3.0
+
+    # --- DoS hardening rules ---
+    recursion_depth_limit_added: 3.5
+    loop_iteration_bound_added: 2.5
+    resource_quota_check_added: 3.0
+
+    # --- NDIS hardening rules ---
+    oid_request_validation_added: 5.0
+    nbl_chain_length_validation_added: 4.0
+
+    # --- Filesystem filter rules ---
+    flt_context_reference_leak_fix: 3.5
+    flt_create_race_mitigation: 4.5
+
+    # --- PnP/Power rules ---
+    surprise_removal_guard_added: 3.0
+    power_state_validation_added: 2.5
+    io_remove_lock_added: 3.5
+
+    # --- DMA/MMIO rules ---
+    mmio_mapping_bounds_validation_added: 5.5
+    dma_buffer_bounds_check_added: 4.0
+
+    # --- WDF hardening rules ---
+    wdf_request_buffer_size_check_added: 4.5
+    wdf_request_completion_guard_added: 3.0
+
   # Category multipliers: small nudge, not the main driver.
   category_multiplier:
+    # Original categories
     bounds_check: 1.05
     user_boundary_check: 1.10
     int_overflow: 1.05
     lifetime_fix: 1.05
     state_hardening: 0.95
+    # New categories (v2)
+    race_condition: 1.05
+    type_confusion: 1.10
+    authorization: 1.10
+    info_disclosure: 1.00
+    ioctl_hardening: 1.10
+    mdl_handling: 1.05
+    object_management: 1.05
+    string_handling: 1.00
+    pool_hardening: 0.95
+    crypto_hardening: 0.90
+    error_path_hardening: 0.90
+    dos_hardening: 0.90
+    ndis_hardening: 1.05
+    filesystem_filter: 1.00
+    pnp_power: 0.95
+    dma_mmio: 1.10
+    wdf_hardening: 1.05
 
   # Reachability contributions: large differentiator.
   # This is added as a bonus on top of semantic rule score.
@@ -68,6 +170,7 @@ weights:
   # Additional bonuses when there is explicit sink proximity evidence.
   # (Only apply when semantic rule already triggered; do not score sinks alone.)
   sink_bonus:
+    # Original
     memory_copy: 1.5
     pool_alloc: 1.2
     pool_free: 1.0
@@ -76,6 +179,21 @@ weights:
     exceptions: 0.6
     string_copy: 0.8
     refcounting: 0.4
+    # New (v2)
+    synchronization: 0.6
+    object_management: 0.8
+    handle_validation: 1.0
+    authorization: 1.2
+    mdl_operations: 1.2
+    memory_zeroing: 0.6
+    ndis_operations: 1.0
+    mmio_dma: 1.5
+    filesystem_filter: 0.8
+    pnp_power: 0.6
+    wdf_operations: 0.8
+    device_security: 1.0
+    irp_cancel: 0.4
+    irp_completion: 0.6
 
   # Penalties for noisy pairing or low-quality comparisons.
   penalties:

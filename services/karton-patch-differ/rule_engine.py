@@ -79,6 +79,7 @@ class SemanticRuleEngine:
     def _compile_guard_patterns(self) -> Dict[str, List[re.Pattern]]:
         """Compile patterns for detecting guards/validations."""
         return {
+            # --- Original guard patterns (v1) ---
             'length_check': [
                 re.compile(r'\b(InputBufferLength|OutputBufferLength|InformationBufferLength|BufferLength|Length)\s*(<|>|<=|>=|==|!=)', re.IGNORECASE),
                 re.compile(r'\bsizeof\s*\(.*\)\s*(<|>|<=|>=)', re.IGNORECASE),
@@ -127,6 +128,170 @@ class SemanticRuleEngine:
             ],
             'refcount': [
                 re.compile(r'\bInterlocked(Increment|Decrement|Exchange|CompareExchange)\b', re.IGNORECASE),
+            ],
+
+            # --- New guard patterns (v2) ---
+
+            # Race condition guards
+            'spinlock': [
+                re.compile(r'\bKeAcquireSpinLock\b'),
+                re.compile(r'\bKeReleaseSpinLock\b'),
+                re.compile(r'\bKeAcquireInStackQueuedSpinLock\b'),
+            ],
+            'mutex_resource': [
+                re.compile(r'\bExAcquireFastMutex\b'),
+                re.compile(r'\bExAcquireResourceExclusiveLite\b'),
+                re.compile(r'\bExAcquireResourceSharedLite\b'),
+                re.compile(r'\bKeEnterCriticalRegion\b'),
+                re.compile(r'\bKeWaitForSingleObject\b'),
+            ],
+            'buffer_capture': [
+                re.compile(r'\b\w+\s*=\s*\w+->\w+\s*;.*//.*capture', re.IGNORECASE),
+                re.compile(r'\bCaptured\w+\s*=', re.IGNORECASE),
+                re.compile(r'\bLocal\w+\s*=\s*\w+->', re.IGNORECASE),
+            ],
+            'cancel_safe': [
+                re.compile(r'\bIoCsqInsertIrp\b'),
+                re.compile(r'\bIoCsqRemoveIrp\b'),
+            ],
+
+            # Type confusion guards
+            'object_type_check': [
+                re.compile(r'\b(ObjectType|TypeTag|Type|Signature)\s*(==|!=)\s*\w+'),
+                re.compile(r'\bif\s*\([^)]*\b(Type|ObjectType)\b'),
+            ],
+            'handle_type_validation': [
+                re.compile(r'\bObReferenceObjectByHandle\b[^;]*(Io|Ps|Ex|Ob)\w+Type'),
+                re.compile(r'\bOBJ_FORCE_ACCESS_CHECK\b'),
+            ],
+            'wow64_check': [
+                re.compile(r'\bIoIs32bitProcess\b'),
+                re.compile(r'\bPsGetProcessWow64Process\b'),
+            ],
+
+            # Authorization guards
+            'privilege_check': [
+                re.compile(r'\bSeSinglePrivilegeCheck\b'),
+                re.compile(r'\bSeAccessCheck\b'),
+                re.compile(r'\bSePrivilegeCheck\b'),
+            ],
+            'access_mode_fix': [
+                re.compile(r'\bIrp->RequestorMode\b'),
+                re.compile(r'\bOBJ_FORCE_ACCESS_CHECK\b'),
+                re.compile(r'\bUserMode\b'),
+            ],
+            'device_acl': [
+                re.compile(r'\bIoCreateDeviceSecure\b'),
+                re.compile(r'\bFILE_DEVICE_SECURE_OPEN\b'),
+                re.compile(r'\bSDDL_DEVOBJ\b'),
+            ],
+            'access_mask_reduction': [
+                re.compile(r'\bKEY_READ\b'),
+                re.compile(r'\bKEY_QUERY_VALUE\b'),
+                re.compile(r'\bGENERIC_READ\b'),
+            ],
+
+            # Information disclosure guards
+            'buffer_zeroing': [
+                re.compile(r'\bRtlZeroMemory\b'),
+                re.compile(r'\bRtlSecureZeroMemory\b'),
+                re.compile(r'\bmemset\s*\([^,]+,\s*0\s*,'),
+                re.compile(r'=\s*\{?\s*0\s*\}?\s*;'),
+            ],
+            'pointer_scrub': [
+                re.compile(r'\w+->?\w*(Pointer|Ptr|Address)\w*\s*=\s*(NULL|0|\(PVOID\)\s*0)\s*;', re.IGNORECASE),
+                re.compile(r'\bMmHighestUserAddress\b'),
+            ],
+
+            # IOCTL hardening guards
+            'default_case': [
+                re.compile(r'\bdefault\s*:'),
+                re.compile(r'\bSTATUS_INVALID_DEVICE_REQUEST\b'),
+            ],
+
+            # MDL handling guards
+            'mdl_safe': [
+                re.compile(r'\bMmGetSystemAddressForMdlSafe\b'),
+                re.compile(r'\bMmProbeAndLockPages\b[^;]*UserMode'),
+            ],
+
+            # Object management guards
+            'reference_balance': [
+                re.compile(r'\bObDereferenceObject\b'),
+                re.compile(r'\bObfDereferenceObject\b'),
+            ],
+            'force_access_check': [
+                re.compile(r'\bOBJ_FORCE_ACCESS_CHECK\b'),
+                re.compile(r'\bOBJ_KERNEL_HANDLE\b'),
+            ],
+
+            # String handling guards
+            'safe_string_replacement': [
+                re.compile(r'\bRtlStringCb(Copy|Cat|Printf)[AW]\b'),
+                re.compile(r'\bRtlStringCch(Copy|Cat|Printf)[AW]\b'),
+            ],
+
+            # Pool hardening guards
+            'pool_type_hardening': [
+                re.compile(r'\bNonPagedPoolNx\b'),
+                re.compile(r'\bExAllocatePool2\b'),
+                re.compile(r'\bPOOL_FLAG_NON_PAGED\b'),
+            ],
+
+            # Crypto hardening guards
+            'secure_zero': [
+                re.compile(r'\bRtlSecureZeroMemory\b'),
+                re.compile(r'\bSecureZeroMemory\b'),
+            ],
+            'constant_time_compare': [
+                re.compile(r'\|=\s*\w+\s*\^\s*\w+'),  # XOR-accumulate pattern
+                re.compile(r'\bRtlCompareMemory\b.*replaced', re.IGNORECASE),
+            ],
+
+            # Error path hardening guards
+            'error_cleanup': [
+                re.compile(r'\bif\s*\(\s*!NT_SUCCESS\b[^)]*\)\s*\{[^}]*(ExFreePool|ObDereferenceObject|IoFreeMdl|MmUnlockPages)', re.DOTALL),
+                re.compile(r'\bif\s*\(\s*!NT_SUCCESS\b'),
+            ],
+            'goto_cleanup': [
+                re.compile(r'\bgoto\s+(Cleanup|cleanup|Exit|exit|Done|done|Error|error)\b'),
+                re.compile(r'\b(Cleanup|Exit|Done|Error)\s*:\s*$'),
+            ],
+            'completion_status_fix': [
+                re.compile(r'\bIrp->IoStatus\.Status\s*=\s*Status\b'),
+                re.compile(r'\bIrp->IoStatus\.Status\s*=\s*\w+Status\b'),
+            ],
+
+            # DoS hardening guards
+            'depth_limit': [
+                re.compile(r'\bIoGetRemainingStackSize\b'),
+                re.compile(r'\bMAX_RECURSION\b', re.IGNORECASE),
+                re.compile(r'\b(depth|Depth)\s*(<|>|<=|>=)\s*\w+'),
+            ],
+
+            # NDIS guards
+            'oid_validation': [
+                re.compile(r'\bInformationBufferLength\b\s*(<|>|<=|>=)'),
+                re.compile(r'\bNDIS_STATUS_INVALID_LENGTH\b'),
+            ],
+
+            # PnP/Power guards
+            'removal_check': [
+                re.compile(r'\b(DeviceRemoved|Removed|SurpriseRemoval)\b'),
+                re.compile(r'\bSTATUS_DELETE_PENDING\b'),
+            ],
+            'power_state_check': [
+                re.compile(r'\bPowerDeviceD0\b'),
+                re.compile(r'\bDevicePowerState\b'),
+            ],
+            'remove_lock': [
+                re.compile(r'\bIoAcquireRemoveLock\b'),
+                re.compile(r'\bIoReleaseRemoveLock\b'),
+            ],
+
+            # Filesystem filter guards
+            'flt_context_release': [
+                re.compile(r'\bFltReleaseContext\b'),
             ],
         }
 

@@ -1,9 +1,15 @@
-# AutoPiff sink definitions
+# AutoPiff sink definitions (v2 comprehensive)
 # Purpose: central catalog of "dangerous" APIs / operations that become high-signal
 # when patches add guards, bounds checks, or validations around them.
+# v2: expanded from 8 groups / 50 symbols to 24 groups / 170+ symbols.
 
-version: 1
+version: 2
 sinks:
+
+  # ==========================================================================
+  # Original sink groups (v1)
+  # ==========================================================================
+
   memory_copy:
     description: Memory copy/move primitives frequently involved in OOB and overflow issues.
     symbols:
@@ -25,11 +31,16 @@ sinks:
       - RtlStringCchCopyW
       - RtlStringCchCatA
       - RtlStringCchCatW
+      - RtlStringCchPrintfA
+      - RtlStringCbPrintfW
       - wcscpy
       - strcpy
       - strcat
+      - wcscat
       - wcsncpy
       - strncpy
+      - sprintf
+      - swprintf
 
   pool_alloc:
     description: Pool allocations are a common precursor to size miscalculation vulnerabilities.
@@ -85,3 +96,153 @@ sinks:
       - InterlockedExchange
       - InterlockedCompareExchange
       - InterlockedAdd
+
+  # ==========================================================================
+  # New sink groups (v2)
+  # ==========================================================================
+
+  synchronization:
+    description: Kernel synchronization primitives added to fix race conditions.
+    symbols:
+      - KeAcquireSpinLock
+      - KeReleaseSpinLock
+      - KeAcquireSpinLockAtDpcLevel
+      - KeReleaseSpinLockFromDpcLevel
+      - KeAcquireInStackQueuedSpinLock
+      - KeReleaseInStackQueuedSpinLock
+      - ExAcquireFastMutex
+      - ExReleaseFastMutex
+      - ExAcquireResourceExclusiveLite
+      - ExAcquireResourceSharedLite
+      - ExReleaseResourceLite
+      - KeEnterCriticalRegion
+      - KeLeaveCriticalRegion
+      - KeWaitForSingleObject
+      - KeWaitForMutexObject
+
+  object_management:
+    description: Object manager reference counting APIs.
+    symbols:
+      - ObReferenceObject
+      - ObReferenceObjectByHandle
+      - ObReferenceObjectByPointer
+      - ObDereferenceObject
+      - ObfDereferenceObject
+      - ObReferenceObjectWithTag
+      - ObDereferenceObjectWithTag
+
+  handle_validation:
+    description: Handle and access validation APIs.
+    symbols:
+      - ObReferenceObjectByHandle
+      - OBJ_FORCE_ACCESS_CHECK
+      - OBJ_KERNEL_HANDLE
+      - InitializeObjectAttributes
+      - ZwOpenKey
+      - ZwCreateKey
+      - ZwCreateFile
+      - ZwOpenFile
+
+  authorization:
+    description: Privilege and access control check APIs.
+    symbols:
+      - SeSinglePrivilegeCheck
+      - SePrivilegeCheck
+      - SeAccessCheck
+      - SeFreePrivileges
+      - IoCheckEaBufferValidity
+
+  mdl_operations:
+    description: Memory descriptor list operations.
+    symbols:
+      - MmGetSystemAddressForMdl
+      - MmGetSystemAddressForMdlSafe
+      - MmProbeAndLockPages
+      - MmUnlockPages
+      - IoAllocateMdl
+      - IoFreeMdl
+
+  memory_zeroing:
+    description: Memory zeroing / initialization APIs used to prevent info disclosure.
+    symbols:
+      - RtlZeroMemory
+      - RtlSecureZeroMemory
+      - RtlSecureZeroMemory2
+      - SecureZeroMemory
+      - RtlFillMemory
+      - memset
+
+  ndis_operations:
+    description: NDIS network driver APIs for OID and NBL handling.
+    symbols:
+      - NdisGetDataBuffer
+      - NdisQueryMdl
+      - NdisMOidRequestComplete
+      - NET_BUFFER_DATA_LENGTH
+      - InformationBuffer
+      - InformationBufferLength
+
+  mmio_dma:
+    description: Memory-mapped I/O and DMA APIs.
+    symbols:
+      - MmMapIoSpace
+      - MmMapIoSpaceEx
+      - MmUnmapIoSpace
+      - AllocateCommonBuffer
+      - GetScatterGatherList
+
+  filesystem_filter:
+    description: Filesystem minifilter context and operation APIs.
+    symbols:
+      - FltGetStreamContext
+      - FltGetStreamHandleContext
+      - FltGetInstanceContext
+      - FltGetVolumeContext
+      - FltReleaseContext
+      - FltReferenceContext
+      - FltCreateFileEx2
+      - FltCreateFile
+
+  pnp_power:
+    description: PnP and power management APIs.
+    symbols:
+      - IoAcquireRemoveLock
+      - IoReleaseRemoveLock
+      - IoReleaseRemoveLockAndWait
+      - IoInitializeRemoveLock
+      - PoSetPowerState
+      - PoStartNextPowerIrp
+
+  wdf_operations:
+    description: WDF/KMDF framework APIs.
+    symbols:
+      - WdfRequestRetrieveInputBuffer
+      - WdfRequestRetrieveOutputBuffer
+      - WdfRequestRetrieveInputMemory
+      - WdfRequestComplete
+      - WdfRequestCompleteWithInformation
+      - WdfRequestCompleteWithPriorityBoost
+
+  device_security:
+    description: Device object security and creation APIs.
+    symbols:
+      - IoCreateDevice
+      - IoCreateDeviceSecure
+      - IoIs32bitProcess
+      - FILE_DEVICE_SECURE_OPEN
+
+  irp_cancel:
+    description: IRP cancellation management APIs.
+    symbols:
+      - IoCsqInsertIrp
+      - IoCsqInsertIrpEx
+      - IoCsqRemoveIrp
+      - IoCsqRemoveNextIrp
+      - IoSetCancelRoutine
+
+  irp_completion:
+    description: IRP completion APIs.
+    symbols:
+      - IoCompleteRequest
+      - IoCallDriver
+      - PoCallDriver
