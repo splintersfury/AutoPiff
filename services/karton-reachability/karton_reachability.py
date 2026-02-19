@@ -10,6 +10,18 @@ logger = logging.getLogger("autopiff.reachability")
 
 
 class ReachabilityKarton(Karton):
+    """
+    AutoPiff Stage 5: Reachability Tagging.
+
+    Runs Ghidra headless analysis on the driver binary to trace
+    call paths from dispatch entry points (DriverEntry, IRP handlers,
+    IOCTL dispatchers) to each changed function, classifying
+    reachability as ioctl, irp, pnp, internal, or unknown.
+
+    Consumes: type=autopiff, kind=semantic_deltas
+    Produces: type=autopiff, kind=reachability
+    """
+
     identity = "AutoPiff.Stage5"
     filters = [
         {"type": "autopiff", "kind": "semantic_deltas"}

@@ -1,5 +1,8 @@
-# AutoPiff Docker Compose
+# AutoPiff Docker Compose (standalone / GitHub)
 # Full pipeline: MWDB + Karton + AutoPiff services
+#
+# NOTE: If you also run driver_analyzer/, new services must be added there too.
+#       See ../driver_analyzer/docker-compose.yml for the production stack.
 #
 # Usage:
 #   docker-compose up -d              # Start all services

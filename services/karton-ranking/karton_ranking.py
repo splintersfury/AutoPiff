@@ -19,6 +19,17 @@ logger = logging.getLogger("autopiff.ranking")
 
 
 class RankingKarton(Karton):
+    """
+    AutoPiff Stage 6: Scoring & Ranking.
+
+    Consumes reachability-tagged deltas from Stage 5, merges reachability
+    into semantic deltas, scores each finding using scoring.yaml, and
+    produces a ranked top-10 list of security-relevant findings.
+
+    Consumes: type=autopiff, kind=reachability
+    Produces: type=autopiff, kind=ranking
+    """
+
     identity = "AutoPiff.Stage6"
     filters = [
         {"type": "autopiff", "kind": "reachability"}

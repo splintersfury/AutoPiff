@@ -23,6 +23,17 @@ AUTOPIFF_VERSION = "0.6.0"
 
 
 class ReportKarton(Karton):
+    """
+    AutoPiff Stage 7: Report Generation.
+
+    Consumes ranked findings from Stage 6, generates human-readable
+    (Markdown) and machine-readable (JSON) reports, validates against
+    the report schema, and uploads both to MWDB.
+
+    Consumes: type=autopiff, kind=ranking
+    Produces: report.md + report.json uploaded to MWDB
+    """
+
     identity = "AutoPiff.Stage7"
     filters = [
         {"type": "autopiff", "kind": "ranking"}
