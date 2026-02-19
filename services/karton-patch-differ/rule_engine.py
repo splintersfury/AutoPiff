@@ -84,6 +84,12 @@ class SemanticRuleEngine:
                 re.compile(r'\b(InputBufferLength|OutputBufferLength|InformationBufferLength|BufferLength|Length)\s*(<|>|<=|>=|==|!=)', re.IGNORECASE),
                 re.compile(r'\bsizeof\s*\(.*\)\s*(<|>|<=|>=)', re.IGNORECASE),
                 re.compile(r'\bif\s*\(.*[Ll]en(gth)?\s*(<|>|<=|>=)', re.IGNORECASE),
+                # Size-based comparisons (e.g., DecompressedSize > 0x1000)
+                re.compile(r'\bif\s*\(.*\b\w*[Ss]ize\w*\s*(<|>|<=|>=)', re.IGNORECASE),
+                # Hex-constant size comparisons (e.g., 0x1000 < uVar3, also in compound conditions)
+                re.compile(r'\b0x[0-9a-fA-F]+\s*(<|>|<=|>=)\s*\w+'),
+                # Numeric-named variable comparisons common in decompilers
+                re.compile(r'\bif\s*\(.*\b\w*[Cc](ount|b|ch)\w*\s*(<|>|<=|>=)', re.IGNORECASE),
             ],
             'sizeof_check': [
                 re.compile(r'\bsizeof\s*\([^)]+\)', re.IGNORECASE),
