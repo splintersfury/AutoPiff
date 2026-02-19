@@ -71,6 +71,7 @@ class ReachabilityKarton(Karton):
             headless_script = os.path.join(ghidra_home, "support", "analyzeHeadless")
 
             project_path = os.path.join(tmpdir, "ghidra_proj")
+            os.makedirs(project_path, exist_ok=True)
             project_name = "temp_proj"
 
             script_path = "/app/ghidra/scripts/autopiff_reachability.py"
