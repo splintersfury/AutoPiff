@@ -1,0 +1,226 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AutoPiff Stage 6: Scoring & Ranking",
+    "type": "object",
+    "required": [
+        "autopiff_stage",
+        "driver_new",
+        "driver_old",
+        "scoring_model_version",
+        "findings",
+        "skipped_findings"
+    ],
+    "properties": {
+        "autopiff_stage": {
+            "type": "string",
+            "const": "ranking"
+        },
+        "driver_new": {
+            "type": "object",
+            "required": ["sha256"],
+            "properties": {
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{64}$"
+                },
+                "version": {
+                    "type": ["string", "null"]
+                }
+            }
+        },
+        "driver_old": {
+            "type": "object",
+            "required": ["sha256"],
+            "properties": {
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{64}$"
+                },
+                "version": {
+                    "type": ["string", "null"]
+                }
+            }
+        },
+        "scoring_model_version": {
+            "type": "integer",
+            "description": "Version of scoring.yaml used"
+        },
+        "findings": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+                "type": "object",
+                "required": [
+                    "rank",
+                    "function",
+                    "final_score",
+                    "rule_ids",
+                    "category",
+                    "semantic_confidence",
+                    "matching_confidence",
+                    "reachability_class",
+                    "reachability_confidence",
+                    "sinks",
+                    "penalties_applied",
+                    "score_breakdown"
+                ],
+                "properties": {
+                    "rank": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "function": {
+                        "type": "string"
+                    },
+                    "final_score": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 15.0
+                    },
+                    "rule_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "semantic_confidence": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0
+                    },
+                    "matching_confidence": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0
+                    },
+                    "reachability_class": {
+                        "type": "string",
+                        "enum": ["ioctl", "irp", "pnp", "internal", "unknown"]
+                    },
+                    "reachability_confidence": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0
+                    },
+                    "reachability_path": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "sinks": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "indicators": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "why_matters": {
+                        "type": "string"
+                    },
+                    "diff_snippet": {
+                        "type": "string"
+                    },
+                    "penalties_applied": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["type", "value"],
+                            "properties": {
+                                "type": {"type": "string"},
+                                "value": {"type": "number"}
+                            }
+                        }
+                    },
+                    "score_breakdown": {
+                        "type": "object",
+                        "required": ["semantic", "reachability", "sinks", "penalties", "final"],
+                        "properties": {
+                            "semantic": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "required": ["rule_id", "base_weight", "rule_confidence", "contribution"],
+                                    "properties": {
+                                        "rule_id": {"type": "string"},
+                                        "base_weight": {"type": "number"},
+                                        "rule_confidence": {"type": "number"},
+                                        "contribution": {"type": "number"}
+                                    }
+                                }
+                            },
+                            "reachability": {
+                                "type": "object",
+                                "required": ["class", "bonus", "confidence", "contribution"],
+                                "properties": {
+                                    "class": {"type": "string"},
+                                    "bonus": {"type": "number"},
+                                    "confidence": {"type": "number"},
+                                    "contribution": {"type": "number"}
+                                }
+                            },
+                            "sinks": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "required": ["sink_group", "bonus", "contribution"],
+                                    "properties": {
+                                        "sink_group": {"type": "string"},
+                                        "bonus": {"type": "number"},
+                                        "contribution": {"type": "number"}
+                                    }
+                                }
+                            },
+                            "penalties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "required": ["type", "value"],
+                                    "properties": {
+                                        "type": {"type": "string"},
+                                        "value": {"type": "number"}
+                                    }
+                                }
+                            },
+                            "final": {
+                                "type": "object",
+                                "required": ["total_before_clamp", "total_after_clamp", "gates_triggered"],
+                                "properties": {
+                                    "total_before_clamp": {"type": "number"},
+                                    "total_after_clamp": {"type": "number"},
+                                    "gates_triggered": {
+                                        "type": "array",
+                                        "items": {"type": "string"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "skipped_findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["function", "reason"],
+                "properties": {
+                    "function": {"type": "string"},
+                    "rule_id": {"type": "string"},
+                    "reason": {"type": "string"}
+                }
+            }
+        },
+        "summary": {
+            "type": "object",
+            "properties": {
+                "total_deltas": {"type": "integer", "minimum": 0},
+                "scored_count": {"type": "integer", "minimum": 0},
+                "skipped_count": {"type": "integer", "minimum": 0},
+                "top_category": {"type": "string"},
+                "reachable_count": {"type": "integer", "minimum": 0}
+            }
+        }
+    }
+}

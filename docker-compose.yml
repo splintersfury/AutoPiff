@@ -186,6 +186,56 @@ services:
         reservations:
           memory: 4G
 
+  # Stage 6: Scoring & Ranking
+  autopiff-ranking:
+    build:
+      context: .
+      dockerfile: services/karton-ranking/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      karton-system:
+        condition: service_started
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      KARTON_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      KARTON_S3_ADDRESS: minio:9000
+      KARTON_S3_BUCKET: karton
+      KARTON_S3_SECURE: "false"
+    volumes:
+      - ./karton.ini:/etc/karton/karton.ini:ro
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # Stage 7: Report Generation
+  autopiff-report:
+    build:
+      context: .
+      dockerfile: services/karton-report/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      karton-system:
+        condition: service_started
+      mwdb-core:
+        condition: service_healthy
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      KARTON_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      KARTON_S3_ADDRESS: minio:9000
+      KARTON_S3_BUCKET: karton
+      KARTON_S3_SECURE: "false"
+      MWDB_API_URL: http://mwdb-core:8080/api/
+      MWDB_API_KEY: ${MWDB_API_KEY:-}
+    volumes:
+      - ./karton.ini:/etc/karton/karton.ini:ro
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
   # ==========================================================================
   # AutoPiff Dashboard
   # ==========================================================================
@@ -225,6 +275,61 @@ services:
       NEXT_PUBLIC_API_URL: http://autopiff-dashboard-api:8000
     ports:
       - "3000:3000"
+
+  # ==========================================================================
+  # AutoPiff Alert Pipeline
+  # ==========================================================================
+
+  # Alerter: Karton consumer that sends Telegram alerts for high-scoring findings
+  autopiff-alerter:
+    build:
+      context: .
+      dockerfile: services/autopiff-alerter/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      karton-system:
+        condition: service_started
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      KARTON_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      KARTON_S3_ADDRESS: minio:9000
+      KARTON_S3_BUCKET: karton
+      KARTON_S3_SECURE: "false"
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      AUTOPIFF_SCORE_THRESHOLD: "8.0"
+    volumes:
+      - ./karton.ini:/etc/karton/karton.ini:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # Driver Monitor: detects new driver versions and uploads to MWDB
+  autopiff-driver-monitor:
+    build:
+      context: .
+      dockerfile: services/driver-monitor/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      karton-redis:
+        condition: service_healthy
+      mwdb-core:
+        condition: service_healthy
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      MWDB_API_URL: http://mwdb-core:8080/api/
+      MWDB_API_KEY: ${MWDB_API_KEY:-}
+      VT_API_KEY: ${VT_API_KEY:-}
+      WINBINDEX_INTERVAL_HOURS: "6"
+      VT_INTERVAL_HOURS: "4"
+    volumes:
+      - ./services/driver-monitor/watchlist.yaml:/app/watchlist.yaml:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   # ==========================================================================
   # Optional: Driver Classifier (routes drivers to AutoPiff)

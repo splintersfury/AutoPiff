@@ -1,0 +1,142 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AutoPiff Stage 7: Report",
+    "type": "object",
+    "required": [
+        "autopiff_stage",
+        "driver",
+        "pairing",
+        "summary",
+        "findings",
+        "metadata"
+    ],
+    "properties": {
+        "autopiff_stage": {
+            "type": "string",
+            "const": "report"
+        },
+        "driver": {
+            "type": "object",
+            "required": ["name", "arch", "old", "new"],
+            "properties": {
+                "name": {"type": "string"},
+                "arch": {"type": "string"},
+                "old": {
+                    "type": "object",
+                    "required": ["sha256"],
+                    "properties": {
+                        "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+                        "version": {"type": ["string", "null"]}
+                    }
+                },
+                "new": {
+                    "type": "object",
+                    "required": ["sha256"],
+                    "properties": {
+                        "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+                        "version": {"type": ["string", "null"]}
+                    }
+                }
+            }
+        },
+        "pairing": {
+            "type": "object",
+            "required": ["decision", "noise_risk", "confidence"],
+            "properties": {
+                "decision": {
+                    "type": "string",
+                    "enum": ["accept", "quarantine", "reject"]
+                },
+                "noise_risk": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high"]
+                },
+                "confidence": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0
+                }
+            }
+        },
+        "summary": {
+            "type": "object",
+            "required": ["total_findings", "reachable_findings", "top_categories"],
+            "properties": {
+                "total_findings": {"type": "integer", "minimum": 0},
+                "reachable_findings": {"type": "integer", "minimum": 0},
+                "top_categories": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            }
+        },
+        "findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "rank",
+                    "function",
+                    "score",
+                    "confidence",
+                    "rule_ids",
+                    "category",
+                    "reachability",
+                    "sinks",
+                    "added_checks",
+                    "why"
+                ],
+                "properties": {
+                    "rank": {"type": "integer", "minimum": 1},
+                    "function": {"type": "string"},
+                    "score": {"type": "number", "minimum": 0.0},
+                    "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                    "rule_ids": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "category": {"type": "string"},
+                    "reachability": {
+                        "type": "object",
+                        "required": ["class", "path"],
+                        "properties": {
+                            "class": {"type": "string"},
+                            "path": {
+                                "type": "array",
+                                "items": {"type": "string"}
+                            }
+                        }
+                    },
+                    "sinks": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "added_checks": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "why": {"type": "string"}
+                }
+            }
+        },
+        "skipped": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["function", "reason"],
+                "properties": {
+                    "function": {"type": "string"},
+                    "reason": {"type": "string"}
+                }
+            }
+        },
+        "metadata": {
+            "type": "object",
+            "required": ["autopiff_version", "generated_at"],
+            "properties": {
+                "autopiff_version": {"type": "string"},
+                "generated_at": {"type": "string", "format": "date-time"}
+            }
+        }
+    }
+}
