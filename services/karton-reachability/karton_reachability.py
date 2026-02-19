@@ -5,6 +5,7 @@ import logging
 import tempfile
 from karton.core import Karton, Task, Resource
 from jsonschema import validate
+from mwdblib import MWDB
 
 logger = logging.getLogger("autopiff.reachability")
 
@@ -35,6 +36,10 @@ class ReachabilityKarton(Karton):
         )
         with open(self.schema_path, "r") as f:
             self.schema = json.load(f)
+
+        # MWDB connection for uploading decompiled source
+        self.mwdb_url = os.environ.get("MWDB_API_URL", "http://mwdb-core:8080/api/")
+        self.mwdb_key = os.environ.get("MWDB_API_KEY", "")
 
     def process(self, task: Task) -> None:
         sample = task.get_resource("sample")
@@ -99,6 +104,14 @@ class ReachabilityKarton(Karton):
             with open(out_path, 'r') as f:
                 result = json.load(f)
 
+            # Upload decompiled .c to MWDB (best-effort, don't block pipeline)
+            decomp_path = result.get("decompiled_c_path")
+            if decomp_path and os.path.exists(decomp_path):
+                sha256 = result.get("driver", {}).get("sha256", "")
+                self._upload_decompiled_c(decomp_path, sha256)
+            else:
+                self.log.warning("No decompiled .c produced by Ghidra script")
+
             # Validate Schema
             validate(instance=result, schema=self.schema)
 
@@ -109,6 +122,44 @@ class ReachabilityKarton(Karton):
                 "reachability": result
             })
             self.send_task(out_task)
+
+
+    def _upload_decompiled_c(self, decomp_path, sha256):
+        """Upload decompiled .c to MWDB as child of the driver sample."""
+        if not self.mwdb_key:
+            self.log.warning("No MWDB_API_KEY set, skipping decompiled .c upload")
+            return
+
+        try:
+            mwdb = MWDB(api_url=self.mwdb_url, api_key=self.mwdb_key)
+        except Exception as e:
+            self.log.error(f"Failed to connect to MWDB: {e}")
+            return
+
+        if not sha256:
+            self.log.error("No driver sha256, cannot upload decompiled .c")
+            return
+
+        try:
+            parent = mwdb.query_file(sha256)
+        except Exception as e:
+            self.log.warning(f"Could not find parent sample {sha256}: {e}")
+            parent = None
+
+        try:
+            with open(decomp_path, "rb") as f:
+                content = f.read()
+
+            uploaded = mwdb.upload_file(
+                f"{sha256[:12]}_decompiled.c",
+                content,
+                parent=parent,
+            )
+            uploaded.add_tag("ghidra_decompiled")
+            uploaded.add_tag("source_c")
+            self.log.info(f"Uploaded decompiled .c ({len(content)} bytes): {uploaded.sha256}")
+        except Exception as e:
+            self.log.error(f"Failed to upload decompiled .c: {e}")
 
 
 if __name__ == "__main__":

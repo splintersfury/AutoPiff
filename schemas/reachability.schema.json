@@ -182,6 +182,10 @@
                 }
             }
         },
+        "decompiled_c_path": {
+            "type": ["string", "null"],
+            "description": "Path to decompiled .c file produced during analysis"
+        },
         "notes": {
             "type": "array",
             "items": {

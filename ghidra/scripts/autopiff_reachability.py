@@ -308,6 +308,50 @@ def tag_semantic_deltas(program, fm, deltas_path, dispatch_table, ioctl_handler_
     return tags
 
 
+def export_decompiled_c(program, fm, decomplib, monitor, out_dir):
+    """Export all functions as decompiled C with FUNCTION_START/END delimiters.
+
+    Returns the output file path, or None on failure.
+    Same format as ExportDecompiled.py so PatchDiffer cache lookup works.
+    """
+    out_path = os.path.join(out_dir, "decompiled.c")
+    func_count = 0
+    error_count = 0
+
+    try:
+        with open(out_path, "w") as f:
+            f.write("// Decompiled by Ghidra - AutoPiff Pipeline\n")
+            f.write("// Source: " + program.getName() + "\n")
+            f.write("// Architecture: " + str(program.getLanguage()) + "\n\n")
+
+            funcs = fm.getFunctions(True)
+            for func in funcs:
+                try:
+                    res = decomplib.decompileFunction(func, 60, monitor)
+                    if res and res.decompileCompleted():
+                        decomp_func = res.getDecompiledFunction()
+                        if decomp_func:
+                            c_code = decomp_func.getC()
+                            if c_code:
+                                entry = func.getEntryPoint().toString()
+                                f.write("// FUNCTION_START: " + func.getName() + " @ " + entry + "\n")
+                                f.write(c_code)
+                                f.write("\n// FUNCTION_END\n\n")
+                                func_count += 1
+                    else:
+                        error_count += 1
+                except Exception as e:
+                    error_count += 1
+                    print("[AutoPiff] Error decompiling " + func.getName() + ": " + str(e))
+
+        print("[AutoPiff] Decompilation export: " + str(func_count) + " functions, " + str(error_count) + " errors")
+        return out_path
+
+    except Exception as e:
+        print("[AutoPiff] Fatal decompilation export error: " + str(e))
+        return None
+
+
 def format_dispatch_table(table):
     """Format dispatch table for output."""
     defaults = ["IRP_MJ_CREATE", "IRP_MJ_CLOSE", "IRP_MJ_DEVICE_CONTROL", "IRP_MJ_INTERNAL_DEVICE_CONTROL"]
@@ -344,7 +388,11 @@ def run():
     if semantic_deltas_path:
         tags = tag_semantic_deltas(program, fm, semantic_deltas_path, dispatch_table, ioctl_handler, ioctls)
 
-    # 5. Build Output
+    # 5. Export decompiled C (reuse open decomplib)
+    out_dir = os.path.dirname(out_path)
+    decomp_path = export_decompiled_c(program, fm, decomplib, monitor_obj, out_dir)
+
+    # 6. Build Output
     notes = ["Analysis completed using Ghidra Headless"]
 
     if not dispatch_table["IRP_MJ_DEVICE_CONTROL"]:
@@ -364,6 +412,7 @@ def run():
         },
         "ioctls": ioctls,
         "tags": tags,
+        "decompiled_c_path": decomp_path,
         "notes": notes
     }
 
