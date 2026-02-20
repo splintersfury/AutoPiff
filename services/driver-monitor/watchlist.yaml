@@ -1,0 +1,32 @@
+# AutoPiff Driver Monitor — Static Watchlist
+# These system drivers are always monitored via WinBIndex.
+# Additional families can be added dynamically via Telegram /watchdriver.
+
+system_drivers:
+  # Windows kernel-mode drivers commonly targeted in privilege escalation
+  - cldflt.sys       # Cloud Files Mini Filter Driver
+  - ntfs.sys         # NTFS File System Driver
+  - ndis.sys         # NDIS System Driver
+  - afd.sys          # Ancillary Function Driver for WinSock
+  - tcpip.sys        # TCP/IP Protocol Driver
+  - win32k.sys       # Win32 Kernel Subsystem
+  - win32kfull.sys   # Win32 Full Kernel Driver
+  - win32kbase.sys   # Win32 Base Kernel Driver
+  - ntos.sys         # NT OS Kernel (ntoskrnl variants)
+  - http.sys         # HTTP Protocol Stack
+  - srv2.sys         # SMBv2 Server Driver
+  - mrxsmb.sys       # SMB Redirector
+  - cng.sys          # Cryptographic Next Generation
+  - ksecdd.sys       # Kernel Security Device Driver
+
+# VirusTotal search queries for 3rd-party driver families.
+# Requires VT_API_KEY. Each entry becomes a VT Intelligence search.
+vt_queries:
+  - name: CrowdStrike
+    query: "type:peexe tag:signed-driver signer:\"CrowdStrike\" ls:7d+"
+  - name: SentinelOne
+    query: "type:peexe tag:signed-driver signer:\"SentinelOne\" ls:7d+"
+  - name: Sophos
+    query: "type:peexe tag:signed-driver signer:\"Sophos\" ls:7d+"
+  - name: ESET
+    query: "type:peexe tag:signed-driver signer:\"ESET\" ls:7d+"
