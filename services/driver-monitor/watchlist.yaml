@@ -21,12 +21,14 @@ system_drivers:
 
 # VirusTotal search queries for 3rd-party driver families.
 # Requires VT_API_KEY. Each entry becomes a VT Intelligence search.
+# Valid tags: "signed" (code-signed), "contains-drv" (driver).
+# Signer filter: "signature:" (matches sigcheck/codesign fields).
 vt_queries:
   - name: CrowdStrike
-    query: "type:peexe tag:signed-driver signer:\"CrowdStrike\" ls:7d+"
+    query: "type:peexe tag:signed tag:contains-drv signature:\"CrowdStrike\" ls:7d+"
   - name: SentinelOne
-    query: "type:peexe tag:signed-driver signer:\"SentinelOne\" ls:7d+"
+    query: "type:peexe tag:signed tag:contains-drv signature:\"SentinelOne\" ls:7d+"
   - name: Sophos
-    query: "type:peexe tag:signed-driver signer:\"Sophos\" ls:7d+"
+    query: "type:peexe tag:signed tag:contains-drv signature:\"Sophos\" ls:7d+"
   - name: ESET
-    query: "type:peexe tag:signed-driver signer:\"ESET\" ls:7d+"
+    query: "type:peexe tag:signed tag:contains-drv signature:\"ESET\" ls:7d+"

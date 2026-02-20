@@ -50,7 +50,7 @@ def poll(
         for family_name, meta_json in dynamic_families.items():
             all_queries.append({
                 "name": family_name,
-                "query": f'type:peexe tag:signed-driver signer:"{family_name}" ls:7d+',
+                "query": f'type:peexe tag:signed tag:contains-drv signature:"{family_name}" ls:7d+',
             })
 
         for entry in all_queries:
