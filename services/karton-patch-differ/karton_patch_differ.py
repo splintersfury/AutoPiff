@@ -38,6 +38,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger("autopiff.patch_differ")
 
+_ADDR_TOKEN_RE = re.compile(r'\b(FUN|DAT|PTR_LOOP|LAB|switchD)_[0-9a-fA-F]{4,}\b')
+
+
+def normalize_address_tokens(code: str) -> str:
+    """Replace Ghidra auto-generated address tokens with stable placeholders.
+
+    Stripped binaries get names like FUN_1c001ca80 that change between builds
+    even when the underlying logic is identical.  Normalizing these to
+    FUN_ADDR (etc.) lets hash-based matching and diffing ignore relocation
+    noise.
+    """
+    return _ADDR_TOKEN_RE.sub(lambda m: m.group(1) + '_ADDR', code)
+
 
 @dataclass
 class DriverInfo:
@@ -72,8 +85,8 @@ class DetailedDiff:
         changed = set()
 
         for func in matched:
-            old_code = old_functions[func].splitlines()
-            new_code = new_functions[func].splitlines()
+            old_code = normalize_address_tokens(old_functions[func]).splitlines()
+            new_code = normalize_address_tokens(new_functions[func]).splitlines()
 
             diff = list(difflib.unified_diff(old_code, new_code, n=3, lineterm=''))
 
@@ -498,7 +511,7 @@ class PatchDifferKarton(Karton):
         """Align functions using hash-based LCS algorithm."""
 
         def get_hash(code):
-            return hashlib.md5(code.encode('utf-8')).hexdigest()
+            return hashlib.md5(normalize_address_tokens(code).encode('utf-8')).hexdigest()
 
         old_hashes = [get_hash(f[1]) for f in old_funcs]
         new_hashes = [get_hash(f[1]) for f in new_funcs]
@@ -541,6 +554,69 @@ class PatchDifferKarton(Karton):
                 for k in range(j2 - j1):
                     key = new_funcs[j1 + k][0]
                     new_dict[key] = new_funcs[j1 + k][1]
+
+        # --- Relocated-function recovery ---
+        # After LCS, some functions appear as _REMOVED_ in old_dict with no
+        # counterpart in new_dict (and vice-versa) purely because their
+        # address changed between builds.  Match them by normalized code hash.
+        removed_keys = {k for k in old_dict if '_REMOVED_' in k and k not in new_dict}
+        added_keys = {k for k in new_dict if k not in old_dict}
+
+        if removed_keys and added_keys:
+            # Build hash → key maps for unmatched entries
+            removed_by_hash: Dict[str, List[str]] = {}
+            for rk in removed_keys:
+                h = get_hash(old_dict[rk])
+                removed_by_hash.setdefault(h, []).append(rk)
+
+            added_by_hash: Dict[str, List[str]] = {}
+            for ak in added_keys:
+                h = get_hash(new_dict[ak])
+                added_by_hash.setdefault(h, []).append(ak)
+
+            # Pair identical-hash entries (relocated but unchanged)
+            for h, r_keys in list(removed_by_hash.items()):
+                a_keys = added_by_hash.get(h, [])
+                pairs = min(len(r_keys), len(a_keys))
+                for i in range(pairs):
+                    rk, ak = r_keys[i], a_keys[i]
+                    # Re-key old code under the new function's name
+                    old_dict[ak] = old_dict.pop(rk)
+                # Remove paired entries so they aren't reused below
+                if pairs >= len(r_keys):
+                    del removed_by_hash[h]
+                else:
+                    removed_by_hash[h] = r_keys[pairs:]
+                if pairs >= len(a_keys):
+                    added_by_hash.pop(h, None)
+                else:
+                    added_by_hash[h] = a_keys[pairs:]
+
+            # Pair remaining unmatched by closest normalized edit distance
+            # (relocated *and* changed functions, e.g. CVE fixes).
+            leftover_removed = [rk for rks in removed_by_hash.values() for rk in rks]
+            leftover_added = [ak for aks in added_by_hash.values() for ak in aks]
+
+            if leftover_removed and leftover_added:
+                norm_old = {rk: normalize_address_tokens(old_dict[rk]) for rk in leftover_removed}
+                norm_new = {ak: normalize_address_tokens(new_dict[ak]) for ak in leftover_added}
+                used_added = set()
+
+                for rk in leftover_removed:
+                    best_ratio = 0.6  # minimum similarity threshold
+                    best_ak = None
+                    for ak in leftover_added:
+                        if ak in used_added:
+                            continue
+                        ratio = difflib.SequenceMatcher(
+                            None, norm_old[rk], norm_new[ak]
+                        ).quick_ratio()
+                        if ratio > best_ratio:
+                            best_ratio = ratio
+                            best_ak = ak
+                    if best_ak:
+                        old_dict[best_ak] = old_dict.pop(rk)
+                        used_added.add(best_ak)
 
         return old_dict, new_dict
 

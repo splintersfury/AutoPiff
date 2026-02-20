@@ -18,6 +18,16 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Address-token normalization (inline copy to avoid importing karton_patch_differ
+# which pulls in karton, pefile, mwdblib).
+_ADDR_TOKEN_RE = re.compile(r'\b(FUN|DAT|PTR_LOOP|LAB|switchD)_[0-9a-fA-F]{4,}\b')
+
+
+def _normalize_address_tokens(code: str) -> str:
+    """Replace Ghidra auto-generated address tokens with stable placeholders."""
+    return _ADDR_TOKEN_RE.sub(lambda m: m.group(1) + '_ADDR', code)
+
+
 # Import SemanticRuleEngine without pulling in Karton runtime deps.
 # The rule_engine module only needs pyyaml at import time.
 _PATCH_DIFFER_DIR = str(
@@ -73,8 +83,8 @@ class CVEResult:
 
 def _generate_diff(old_code: str, new_code: str, func_name: str) -> List[str]:
     """Generate unified diff lines between old and new function code."""
-    old_lines = old_code.splitlines(keepends=True)
-    new_lines = new_code.splitlines(keepends=True)
+    old_lines = _normalize_address_tokens(old_code).splitlines(keepends=True)
+    new_lines = _normalize_address_tokens(new_code).splitlines(keepends=True)
     diff = list(difflib.unified_diff(
         old_lines, new_lines,
         fromfile=f"a/{func_name}", tofile=f"b/{func_name}",
@@ -93,7 +103,7 @@ def _match_functions(old_funcs: Dict[str, str],
     common = set(old_funcs.keys()) & set(new_funcs.keys())
     changed = []
     for name in sorted(common):
-        if old_funcs[name] != new_funcs[name]:
+        if _normalize_address_tokens(old_funcs[name]) != _normalize_address_tokens(new_funcs[name]):
             changed.append((name, old_funcs[name], new_funcs[name]))
     return changed
 
