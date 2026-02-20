@@ -1,0 +1,230 @@
+{
+  "version": 1,
+  "description": "AutoPiff CVE validation corpus — ground truth for rule engine evaluation",
+  "cves": [
+    {
+      "cve_id": "CVE-2024-30085",
+      "driver": "cldflt.sys",
+      "description": "Cloud Files Mini Filter — missing size check before memcpy leads to heap overflow",
+      "vuln_version": {
+        "build": "10.0.22621.3593",
+        "kb": "KB5037771",
+        "sha256": null,
+        "winbindex_filename": "cldflt.sys",
+        "winbindex_version_prefix": "10.0.22621.3593"
+      },
+      "fix_version": {
+        "build": "10.0.22621.3737",
+        "kb": "KB5039212",
+        "sha256": null,
+        "winbindex_filename": "cldflt.sys",
+        "winbindex_version_prefix": "10.0.22621.3737"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "HsmIBitmapNORMALOpen|FUN_1c005",
+          "expected_categories": ["bounds_check"],
+          "expected_rules": ["added_len_check_before_memcpy"],
+          "min_confidence": 0.85
+        }
+      ],
+      "expected_category_primary": "bounds_check"
+    },
+    {
+      "cve_id": "CVE-2023-21768",
+      "driver": "afd.sys",
+      "description": "AFD WinSock — missing ProbeForWrite allows kernel write-what-where via IO ring",
+      "vuln_version": {
+        "build": "10.0.22621.963",
+        "kb": "KB5021255",
+        "sha256": null,
+        "winbindex_filename": "afd.sys",
+        "winbindex_version_prefix": "10.0.22621.963"
+      },
+      "fix_version": {
+        "build": "10.0.22621.1105",
+        "kb": "KB5022303",
+        "sha256": null,
+        "winbindex_filename": "afd.sys",
+        "winbindex_version_prefix": "10.0.22621.1105"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "AfdRioValidateRequestBuffer|AfdNotifyRioRemoveCompletion|FUN_1c00",
+          "expected_categories": ["user_boundary_check"],
+          "expected_rules": ["added_probe_for_write", "added_probe_call"],
+          "min_confidence": 0.70
+        }
+      ],
+      "expected_category_primary": "user_boundary_check"
+    },
+    {
+      "cve_id": "CVE-2024-38063",
+      "driver": "tcpip.sys",
+      "description": "TCP/IP stack — integer underflow in IPv6 packet reassembly allows RCE",
+      "vuln_version": {
+        "build": "10.0.22621.3880",
+        "kb": "KB5040442",
+        "sha256": null,
+        "winbindex_filename": "tcpip.sys",
+        "winbindex_version_prefix": "10.0.22621.3880"
+      },
+      "fix_version": {
+        "build": "10.0.22621.4037",
+        "kb": "KB5041585",
+        "sha256": null,
+        "winbindex_filename": "tcpip.sys",
+        "winbindex_version_prefix": "10.0.22621.4037"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "Ipv6pReassembleDatagram|Ipv6pReceiveFragment|IppReassembleDatagram|FUN_1c0",
+          "expected_categories": ["int_overflow"],
+          "expected_rules": ["added_overflow_check_on_arithmetic", "added_underflow_guard"],
+          "min_confidence": 0.70
+        }
+      ],
+      "expected_category_primary": "int_overflow"
+    },
+    {
+      "cve_id": "CVE-2023-28252",
+      "driver": "clfs.sys",
+      "description": "Common Log File System — OOB write via corrupted base log offset",
+      "vuln_version": {
+        "build": "10.0.22621.1413",
+        "kb": "KB5023706",
+        "sha256": null,
+        "winbindex_filename": "clfs.sys",
+        "winbindex_version_prefix": "10.0.22621.1413"
+      },
+      "fix_version": {
+        "build": "10.0.22621.1555",
+        "kb": "KB5025239",
+        "sha256": null,
+        "winbindex_filename": "clfs.sys",
+        "winbindex_version_prefix": "10.0.22621.1555"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "CClfsBaseFilePersisted::WriteMetadataBlock|ClfsBaseFlushMetadata|CClfsLogFcbPhysical|FUN_1c0",
+          "expected_categories": ["bounds_check"],
+          "expected_rules": ["added_len_check_before_memcpy", "added_bounds_check_on_offset", "added_index_range_check"],
+          "min_confidence": 0.70
+        }
+      ],
+      "expected_category_primary": "bounds_check"
+    },
+    {
+      "cve_id": "CVE-2024-26229",
+      "driver": "csc.sys",
+      "description": "Client-Side Caching — missing access check allows EoP",
+      "vuln_version": {
+        "build": "10.0.22621.3296",
+        "kb": "KB5035853",
+        "sha256": null,
+        "winbindex_filename": "csc.sys",
+        "winbindex_version_prefix": "10.0.22621.3296"
+      },
+      "fix_version": {
+        "build": "10.0.22621.3447",
+        "kb": "KB5036893",
+        "sha256": null,
+        "winbindex_filename": "csc.sys",
+        "winbindex_version_prefix": "10.0.22621.3447"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "CscDevFcbXXXControlFile|R0Ioctl|FUN_1c0",
+          "expected_categories": ["authorization"],
+          "expected_rules": ["added_access_check", "added_previous_mode_gate", "added_privilege_check"],
+          "min_confidence": 0.70
+        }
+      ],
+      "expected_category_primary": "authorization"
+    },
+    {
+      "cve_id": "CVE-2024-38193",
+      "driver": "afd.sys",
+      "description": "AFD — use-after-free race on Registered I/O buffers allows EoP",
+      "vuln_version": {
+        "build": "10.0.22621.3880",
+        "kb": "KB5040442",
+        "sha256": null,
+        "winbindex_filename": "afd.sys",
+        "winbindex_version_prefix": "10.0.22621.3880"
+      },
+      "fix_version": {
+        "build": "10.0.22621.4037",
+        "kb": "KB5041585",
+        "sha256": null,
+        "winbindex_filename": "afd.sys",
+        "winbindex_version_prefix": "10.0.22621.4037"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "AfdRioDeregisterBuffer|AfdRioCloseCompletion|FUN_1c0",
+          "expected_categories": ["lifetime_fix"],
+          "expected_rules": ["added_refcount_guard", "added_use_after_free_guard", "added_null_check_before_deref"],
+          "min_confidence": 0.70
+        }
+      ],
+      "expected_category_primary": "lifetime_fix"
+    },
+    {
+      "cve_id": "CVE-2023-36036",
+      "driver": "cldflt.sys",
+      "description": "Cloud Files Mini Filter — heap overflow via crafted reparse data",
+      "vuln_version": {
+        "build": "10.0.22621.2428",
+        "kb": "KB5031354",
+        "sha256": null,
+        "winbindex_filename": "cldflt.sys",
+        "winbindex_version_prefix": "10.0.22621.2428"
+      },
+      "fix_version": {
+        "build": "10.0.22621.2715",
+        "kb": "KB5032190",
+        "sha256": null,
+        "winbindex_filename": "cldflt.sys",
+        "winbindex_version_prefix": "10.0.22621.2715"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "HsmFltProcessReparse|HsmpRpReadBuffer|HsmpRpWriteBuffer|FUN_1c0",
+          "expected_categories": ["bounds_check"],
+          "expected_rules": ["added_len_check_before_memcpy", "added_bounds_check_on_offset"],
+          "min_confidence": 0.70
+        }
+      ],
+      "expected_category_primary": "bounds_check"
+    },
+    {
+      "cve_id": "CVE-2024-30088",
+      "driver": "ntoskrnl.exe",
+      "description": "NT Kernel — TOCTOU race in AuthzBasepCopyoutInternalSecurityAttributes",
+      "vuln_version": {
+        "build": "10.0.22621.3593",
+        "kb": "KB5037771",
+        "sha256": null,
+        "winbindex_filename": "ntoskrnl.exe",
+        "winbindex_version_prefix": "10.0.22621.3593"
+      },
+      "fix_version": {
+        "build": "10.0.22621.3737",
+        "kb": "KB5039212",
+        "sha256": null,
+        "winbindex_filename": "ntoskrnl.exe",
+        "winbindex_version_prefix": "10.0.22621.3737"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "AuthzBasepCopyoutInternalSecurityAttributes|NtAccessCheckByTypeAndAuditAlarm|FUN_1400",
+          "expected_categories": ["race_condition"],
+          "expected_rules": ["added_lock_around_toctou", "added_spinlock_guard", "added_mutex_guard"],
+          "min_confidence": 0.70
+        }
+      ],
+      "expected_category_primary": "race_condition"
+    }
+  ]
+}

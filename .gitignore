@@ -33,6 +33,9 @@ node_modules/
 .next/
 out/
 
+# Validation corpus (downloaded binaries + decompiled cache)
+corpus/
+
 # Docker volumes (if local)
 mwdb-uploads/
 minio-data/
