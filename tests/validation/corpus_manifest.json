@@ -268,6 +268,661 @@
         }
       ],
       "expected_category_primary": "race_condition"
+    },
+    {
+      "cve_id": "CVE-2023-36802",
+      "driver": "mskssrv.sys",
+      "description": "Kernel Streaming Server \u2014 FsContextReg/FsStreamReg object type confusion leads to EoP",
+      "vuln_version": {
+        "build": "10.0.22621.1848",
+        "kb": "KB5027231",
+        "sha256": "d95c3452af624ab2b5462092629fb98a2f531853ba600e2dc707fb780b22b7d8",
+        "winbindex_filename": "mskssrv.sys",
+        "winbindex_version_prefix": "10.0.22621.1848"
+      },
+      "fix_version": {
+        "build": "10.0.22621.2283",
+        "kb": "KB5030219",
+        "sha256": "f9f905ada8ecac1136ed6a5fcc0f33788bd6f13808dacc42788cdc3ee5f8f756",
+        "winbindex_filename": "mskssrv.sys",
+        "winbindex_version_prefix": "10.0.22621.2283"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "FSRendezvousServer::InitializeContext|FsContextReg|FUN_1c0",
+          "expected_categories": [
+            "type_confusion"
+          ],
+          "expected_rules": [
+            "object_type_validation_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "type_confusion"
+    },
+    {
+      "cve_id": "CVE-2022-21882",
+      "driver": "win32kbase.sys",
+      "description": "Win32k \u2014 ConsoleWindow flag misinterprets WndExtra causing type confusion EoP",
+      "vuln_version": {
+        "build": "10.0.22621.1",
+        "kb": "RTM",
+        "sha256": "3ee707fc7feda373b04ae79158e42a66dd641bb926d224255d142f5ab60530bc",
+        "winbindex_filename": "win32kbase.sys",
+        "winbindex_version_prefix": "10.0.22621.1"
+      },
+      "fix_version": {
+        "build": "10.0.22621.382",
+        "kb": "KB5019509",
+        "sha256": "312582c89e1b34c1cb4afc44f5d8b0631c2cf8093d52c7cd8c94dfe212446ad3",
+        "winbindex_filename": "win32kbase.sys",
+        "winbindex_version_prefix": "10.0.22621.382"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "xxxClientAllocWindowClassExtraBytes|NtUserConsoleControl|FUN_1c0",
+          "expected_categories": [
+            "type_confusion"
+          ],
+          "expected_rules": [
+            "object_type_validation_added",
+            "handle_object_type_check_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "type_confusion"
+    },
+    {
+      "cve_id": "CVE-2024-21338",
+      "driver": "appid.sys",
+      "description": "AppLocker \u2014 IOCTL 0x22A018 missing access control allows kernel code execution",
+      "vuln_version": {
+        "build": "10.0.22621.2506",
+        "kb": "KB5031455",
+        "sha256": "7c093eb0eeae4abb6abad3a78382d2cb089c2b7b83390eb162682f4b724807c6",
+        "winbindex_filename": "appid.sys",
+        "winbindex_version_prefix": "10.0.22621.2506"
+      },
+      "fix_version": {
+        "build": "10.0.22621.3155",
+        "kb": "KB5034765",
+        "sha256": "d5a405d155740eea0a998adcd7425cd0eab7779bf58a6e82c57b9d4459b52d1a",
+        "winbindex_filename": "appid.sys",
+        "winbindex_version_prefix": "10.0.22621.3155"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "AipSmartHashImageFile|CTuneupMgr::NotifyRefresh|FUN_1c0",
+          "expected_categories": [
+            "ioctl_hardening"
+          ],
+          "expected_rules": [
+            "ioctl_input_size_validation_added",
+            "ioctl_code_default_case_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "ioctl_hardening"
+    },
+    {
+      "cve_id": "CVE-2024-38054",
+      "driver": "ksthunk.sys",
+      "description": "Kernel Streaming WOW64 Thunk \u2014 integer overflow in KSSTREAM_HEADER thunking allows EoP",
+      "vuln_version": {
+        "build": "10.0.22621.3733",
+        "kb": "KB5039212",
+        "sha256": "db60a06a61c98e55d67c8161b5fb6ccfa24969dcc199120fdc3da12eb033c901",
+        "winbindex_filename": "ksthunk.sys",
+        "winbindex_version_prefix": "10.0.22621.3733"
+      },
+      "fix_version": {
+        "build": "10.0.22621.3880",
+        "kb": "KB5040442",
+        "sha256": "1a6376302dbf3f9c16ddf48e0ec6a712ff6145cc2bd1bc4b8011946295347a4c",
+        "winbindex_filename": "ksthunk.sys",
+        "winbindex_version_prefix": "10.0.22621.3880"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "CKSAutomationThunk::ThunkEnableEventIrp|CKSAutomationThunk::Thunk|FUN_1c0",
+          "expected_categories": [
+            "ioctl_hardening"
+          ],
+          "expected_rules": [
+            "ioctl_input_size_validation_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "ioctl_hardening"
+    },
+    {
+      "cve_id": "CVE-2024-35250",
+      "driver": "ks.sys",
+      "description": "Kernel Streaming \u2014 untrusted pointer dereference in IOCTL dispatch allows EoP",
+      "vuln_version": {
+        "build": "10.0.22621.3672",
+        "kb": "KB5037853",
+        "sha256": "73a0489e6e73e90164017c0660f907235a6cd5a5b4d208ff7df294a737e21904",
+        "winbindex_filename": "ks.sys",
+        "winbindex_version_prefix": "10.0.22621.3672"
+      },
+      "fix_version": {
+        "build": "10.0.22621.3733",
+        "kb": "KB5039212",
+        "sha256": "cc051aab9f9c2504244bae3349cb2e06d3c213a1dad180efafb32a7b067539d8",
+        "winbindex_filename": "ks.sys",
+        "winbindex_version_prefix": "10.0.22621.3733"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "DispatchDeviceControl|KsDispatchDeviceControl|FUN_1c0",
+          "expected_categories": [
+            "ioctl_hardening"
+          ],
+          "expected_rules": [
+            "method_neither_probe_added",
+            "ioctl_input_size_validation_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "ioctl_hardening"
+    },
+    {
+      "cve_id": "CVE-2023-29360",
+      "driver": "mskssrv.sys",
+      "description": "Kernel Streaming Server \u2014 MmProbeAndLockPages called with KernelMode on user MDL",
+      "vuln_version": {
+        "build": "10.0.22621.1702",
+        "kb": "KB5026372",
+        "sha256": "",
+        "winbindex_filename": "mskssrv.sys",
+        "winbindex_version_prefix": "10.0.22621.1702"
+      },
+      "fix_version": {
+        "build": "10.0.22621.1848",
+        "kb": "KB5027231",
+        "sha256": "d95c3452af624ab2b5462092629fb98a2f531853ba600e2dc707fb780b22b7d8",
+        "winbindex_filename": "mskssrv.sys",
+        "winbindex_version_prefix": "10.0.22621.1848"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "FsAllocAndLockMdl|FsAllocateAndLock|FUN_1c0",
+          "expected_categories": [
+            "mdl_handling"
+          ],
+          "expected_rules": [
+            "mdl_probe_access_mode_fix"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "mdl_handling"
+    },
+    {
+      "cve_id": "CVE-2024-38238",
+      "driver": "ksthunk.sys",
+      "description": "Kernel Streaming WOW64 Thunk \u2014 MmMapLockedPages without MmProbeAndLockPages in frame handling",
+      "vuln_version": {
+        "build": "10.0.22621.4036",
+        "kb": "KB5041585",
+        "sha256": "1ec7cfbd9bc4b17c9d4c0ed5706138deeee8761419a745a5f25d312ef92aa937",
+        "winbindex_filename": "ksthunk.sys",
+        "winbindex_version_prefix": "10.0.22621.4036"
+      },
+      "fix_version": {
+        "build": "10.0.22621.4169",
+        "kb": "KB5043076",
+        "sha256": "d1d0b0a9e3275263b83646fee597ff9b0f34b87c2b56c3e44479cab02783757f",
+        "winbindex_filename": "ksthunk.sys",
+        "winbindex_version_prefix": "10.0.22621.4169"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "CKSAutomationThunk|ThunkStreamingIrp|FUN_1c0",
+          "expected_categories": [
+            "mdl_handling"
+          ],
+          "expected_rules": [
+            "mdl_safe_mapping_replacement",
+            "mdl_null_check_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "mdl_handling"
+    },
+    {
+      "cve_id": "CVE-2023-29336",
+      "driver": "win32kfull.sys",
+      "description": "Win32k \u2014 use-after-free from unlocked nested menu object allows EoP",
+      "vuln_version": {
+        "build": "10.0.22621.1555",
+        "kb": "KB5025239",
+        "sha256": "ff76b59da7ef90aa14c8fb3c27734c62d4d5326cfe0ccd33108008421002c970",
+        "winbindex_filename": "win32kfull.sys",
+        "winbindex_version_prefix": "10.0.22621.1555"
+      },
+      "fix_version": {
+        "build": "10.0.22621.1635",
+        "kb": "KB5026372",
+        "sha256": "61fd9c9785513d22156d5ce5147c87a263f81c0dcfac030c1cf4d14e529eb78f",
+        "winbindex_filename": "win32kfull.sys",
+        "winbindex_version_prefix": "10.0.22621.1635"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "xxxEnableMenuItem|xxxMNDestroyHandler|FUN_1c0",
+          "expected_categories": [
+            "object_management"
+          ],
+          "expected_rules": [
+            "ob_reference_balance_fix"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "object_management"
+    },
+    {
+      "cve_id": "CVE-2023-32019",
+      "driver": "ntoskrnl.exe",
+      "description": "NT Kernel \u2014 kernel heap memory leak to user process via thread info query",
+      "vuln_version": {
+        "build": "10.0.22621.1702",
+        "kb": "KB5026372",
+        "sha256": "970d9bdc6927282bc9779ce235bc0a6384f6ef5ca05b69b64eadb2f9bd08cbfb",
+        "winbindex_filename": "ntoskrnl.exe",
+        "winbindex_version_prefix": "10.0.22621.1702"
+      },
+      "fix_version": {
+        "build": "10.0.22621.1848",
+        "kb": "KB5027231",
+        "sha256": "c7a3f55fd7817cec48d095fbb121cd471f61529cd6915f961c67e8e7a9fb40af",
+        "winbindex_filename": "ntoskrnl.exe",
+        "winbindex_version_prefix": "10.0.22621.1848"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "NtQueryInformationThread|PspCopyAndFixupSecurityAttributes|FUN_1400",
+          "expected_categories": [
+            "info_disclosure"
+          ],
+          "expected_rules": [
+            "buffer_zeroing_before_copy_added",
+            "stack_variable_initialization_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "info_disclosure"
+    },
+    {
+      "cve_id": "CVE-2024-38256",
+      "driver": "win32k.sys",
+      "description": "Win32k \u2014 uninitialized resource usage leaks kernel memory to user mode",
+      "vuln_version": {
+        "build": "10.0.22621.3958",
+        "kb": "KB5040527",
+        "sha256": "3c008cee756d6362be3b1d52fc3b46e55198e7dcd5a899d8ac90ee23543f7ec1",
+        "winbindex_filename": "win32k.sys",
+        "winbindex_version_prefix": "10.0.22621.3958"
+      },
+      "fix_version": {
+        "build": "10.0.22621.4169",
+        "kb": "KB5043076",
+        "sha256": "38536eab79edaad49b4b8c10ecca916c6cd987725c37c1e504cb60d6604a7090",
+        "winbindex_filename": "win32k.sys",
+        "winbindex_version_prefix": "10.0.22621.4169"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "NtGdiGetGlyphOutline|GreGetGlyphOutlineInternal|FUN_1c0",
+          "expected_categories": [
+            "info_disclosure"
+          ],
+          "expected_rules": [
+            "stack_variable_initialization_added",
+            "kernel_pointer_scrubbing_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "info_disclosure"
+    },
+    {
+      "cve_id": "CVE-2023-36424",
+      "driver": "clfs.sys",
+      "description": "Common Log File System \u2014 pool overflow from unvalidated reparse data",
+      "vuln_version": {
+        "build": "10.0.22621.2506",
+        "kb": "KB5031455",
+        "sha256": "add20630d408304c91ec9697ff0562d74e074cfba47833afea452766c76b71cd",
+        "winbindex_filename": "clfs.sys",
+        "winbindex_version_prefix": "10.0.22621.2506"
+      },
+      "fix_version": {
+        "build": "10.0.22621.2715",
+        "kb": "KB5032190",
+        "sha256": "a06b953a9893bb67dc4f018f28e20ba498b27c6a2c29b3dfbb1cb14130532bf3",
+        "winbindex_filename": "clfs.sys",
+        "winbindex_version_prefix": "10.0.22621.2715"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "CClfsBaseFilePersisted::FlushImage|ClfsBaseFlush|FUN_1c0",
+          "expected_categories": [
+            "pool_hardening"
+          ],
+          "expected_rules": [
+            "pool_allocation_null_check_added",
+            "deprecated_pool_api_replacement"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "pool_hardening"
+    },
+    {
+      "cve_id": "CVE-2022-21907",
+      "driver": "http.sys",
+      "description": "HTTP Protocol Stack \u2014 uninitialized tracker struct via crafted HTTP headers allows RCE",
+      "vuln_version": {
+        "build": "10.0.22621.1",
+        "kb": "RTM",
+        "sha256": "bd1c25f70346969acc9c19792c75ba738dba1d1cb8943831748b9a8cf83ebb5d",
+        "winbindex_filename": "http.sys",
+        "winbindex_version_prefix": "10.0.22621.1"
+      },
+      "fix_version": {
+        "build": "10.0.22621.382",
+        "kb": "KB5019509",
+        "sha256": "b45816aba1fcb00f745cdb3f3efd67c9cb1ccc317e80d1d0720037abbb35c95f",
+        "winbindex_filename": "http.sys",
+        "winbindex_version_prefix": "10.0.22621.382"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "UlpAllocateFastTracker|UlAllocateFastTracker|FUN_1c0",
+          "expected_categories": [
+            "string_handling"
+          ],
+          "expected_rules": [
+            "safe_string_function_replacement",
+            "unicode_string_length_validation_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "string_handling"
+    },
+    {
+      "cve_id": "CVE-2024-21302",
+      "driver": "ntoskrnl.exe",
+      "description": "NT Kernel \u2014 secure kernel version downgrade bypass via unvalidated version state",
+      "vuln_version": {
+        "build": "10.0.22621.3958",
+        "kb": "KB5040527",
+        "sha256": "6eadc85aef8bc4693ffeb2ae2dec09f01bae883e1e596a0236fcc8f789e8170e",
+        "winbindex_filename": "ntoskrnl.exe",
+        "winbindex_version_prefix": "10.0.22621.3958"
+      },
+      "fix_version": {
+        "build": "10.0.22621.4169",
+        "kb": "KB5043076",
+        "sha256": "f7970a8c13be1b35a093eeffec1e4c8aa8271d5bd8a9a1802aa849e95b635d79",
+        "winbindex_filename": "ntoskrnl.exe",
+        "winbindex_version_prefix": "10.0.22621.4169"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "VslCheckVersion|SepValidateSecureKernelVersion|FUN_1400",
+          "expected_categories": [
+            "state_hardening"
+          ],
+          "expected_rules": [
+            "interlocked_refcount_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "state_hardening"
+    },
+    {
+      "cve_id": "CVE-2024-38106",
+      "driver": "ntoskrnl.exe",
+      "description": "NT Kernel \u2014 missing lock around VslpEnterIumSecureMode causes race condition EoP",
+      "vuln_version": {
+        "build": "10.0.22621.3958",
+        "kb": "KB5040527",
+        "sha256": "6eadc85aef8bc4693ffeb2ae2dec09f01bae883e1e596a0236fcc8f789e8170e",
+        "winbindex_filename": "ntoskrnl.exe",
+        "winbindex_version_prefix": "10.0.22621.3958"
+      },
+      "fix_version": {
+        "build": "10.0.22621.4169",
+        "kb": "KB5043076",
+        "sha256": "f7970a8c13be1b35a093eeffec1e4c8aa8271d5bd8a9a1802aa849e95b635d79",
+        "winbindex_filename": "ntoskrnl.exe",
+        "winbindex_version_prefix": "10.0.22621.4169"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "VslGetSetSecureContext|VslpEnterIumSecureMode|FUN_1400",
+          "expected_categories": [
+            "race_condition"
+          ],
+          "expected_rules": [
+            "spinlock_acquisition_added",
+            "mutex_or_resource_lock_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "race_condition"
+    },
+    {
+      "cve_id": "CVE-2023-28218",
+      "driver": "afd.sys",
+      "description": "AFD WinSock \u2014 integer overflow in AfdCopyCMSGBuffer allows EoP",
+      "vuln_version": {
+        "build": "10.0.22621.1344",
+        "kb": "KB5023778",
+        "sha256": "0f94fdc651d06cef4c66d46a6b9b92a1ef0c876113a15b24f04ae85bdb75a2d3",
+        "winbindex_filename": "afd.sys",
+        "winbindex_version_prefix": "10.0.22621.1344"
+      },
+      "fix_version": {
+        "build": "10.0.22621.1555",
+        "kb": "KB5025239",
+        "sha256": "34050332248d30044970fd1b4b29925c60b01533bc6d289344b8b998135315df",
+        "winbindex_filename": "afd.sys",
+        "winbindex_version_prefix": "10.0.22621.1555"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "AfdCopyCMSGBuffer|AfdGetConnectData|FUN_1c0",
+          "expected_categories": [
+            "int_overflow"
+          ],
+          "expected_rules": [
+            "safe_size_math_helper_added",
+            "alloc_size_overflow_check_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "int_overflow"
+    },
+    {
+      "cve_id": "CVE-2024-30089",
+      "driver": "mskssrv.sys",
+      "description": "Kernel Streaming Server \u2014 ref-count logic error causes use-after-free EoP",
+      "vuln_version": {
+        "build": "10.0.22621.2506",
+        "kb": "KB5031455",
+        "sha256": "b403470eec3a32d288232e2fde95bebd5ddcaae0830f051952aa8a9f81519aa2",
+        "winbindex_filename": "mskssrv.sys",
+        "winbindex_version_prefix": "10.0.22621.2506"
+      },
+      "fix_version": {
+        "build": "10.0.22621.3733",
+        "kb": "KB5039212",
+        "sha256": "b4ebcff2c4d8d27d585c398e7b02bba8b2b3e4d286d4099122d048c61d4b3b9a",
+        "winbindex_filename": "mskssrv.sys",
+        "winbindex_version_prefix": "10.0.22621.3733"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "FSRendezvousServer|FSStreamReg::Close|FUN_1c0",
+          "expected_categories": [
+            "lifetime_fix"
+          ],
+          "expected_rules": [
+            "null_after_free_added",
+            "guard_before_free_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "lifetime_fix"
+    },
+    {
+      "cve_id": "CVE-2024-49138",
+      "driver": "clfs.sys",
+      "description": "Common Log File System \u2014 heap overflow in LoadContainerQ allows EoP",
+      "vuln_version": {
+        "build": "10.0.22621.4541",
+        "kb": "KB5046617",
+        "sha256": "b138c28f72e8510f9612d07d5109d73065ced6cbbf8079a663a1e0601fe0fbaa",
+        "winbindex_filename": "clfs.sys",
+        "winbindex_version_prefix": "10.0.22621.4541"
+      },
+      "fix_version": {
+        "build": "10.0.22621.4601",
+        "kb": "KB5048685",
+        "sha256": "ab0497f5f62a3aaa9e54ba537bddb9b5d8b20907fb12ba5eddb552b1e19f32c5",
+        "winbindex_filename": "clfs.sys",
+        "winbindex_version_prefix": "10.0.22621.4601"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "CClfsBaseFilePersisted::LoadContainerQ|LoadContainerQ|FUN_1c0",
+          "expected_categories": [
+            "bounds_check"
+          ],
+          "expected_rules": [
+            "added_len_check_before_memcpy",
+            "added_index_bounds_check"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "bounds_check"
+    },
+    {
+      "cve_id": "CVE-2022-37969",
+      "driver": "clfs.sys",
+      "description": "Common Log File System \u2014 SignaturesOffset OOB write via corrupted cbSymbolZone",
+      "vuln_version": {
+        "build": "10.0.22621.1",
+        "kb": "RTM",
+        "sha256": "cf0ea0bb9ad857f41e2715df822f189bef955804c0bb5bfe3829f90789ede1b3",
+        "winbindex_filename": "clfs.sys",
+        "winbindex_version_prefix": "10.0.22621.1"
+      },
+      "fix_version": {
+        "build": "10.0.22621.521",
+        "kb": "KB5019509",
+        "sha256": "53c5d0880b5f530fe9ef3fcbf1707632e2563760c717fbacecf8c324199b4e3a",
+        "winbindex_filename": "clfs.sys",
+        "winbindex_version_prefix": "10.0.22621.521"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "CClfsBaseFilePersisted|AddSymbol|cbSymbolZone|FUN_1c0",
+          "expected_categories": [
+            "bounds_check"
+          ],
+          "expected_rules": [
+            "added_index_bounds_check",
+            "added_struct_size_validation"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "bounds_check"
+    },
+    {
+      "cve_id": "CVE-2025-24985",
+      "driver": "fastfat.sys",
+      "description": "FAT File System \u2014 cluster count overflow in FAT bitmap allocation allows RCE",
+      "vuln_version": {
+        "build": "10.0.22621.4830",
+        "kb": "KB5050021",
+        "sha256": "9fcbf76fb0b441ac245a354b05c5466caaf1fde6af2d9db77cc4518a38bc7d5e",
+        "winbindex_filename": "fastfat.sys",
+        "winbindex_version_prefix": "10.0.22621.4830"
+      },
+      "fix_version": {
+        "build": "10.0.22621.5037",
+        "kb": "KB5051987",
+        "sha256": "7dbdea71368eacc0adb3a87b363e465d132552251cf34b87187e9748b06eac30",
+        "winbindex_filename": "fastfat.sys",
+        "winbindex_version_prefix": "10.0.22621.5037"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "FatSetupAllocationSupport|FatExamineFatEntries|FUN_1c0",
+          "expected_categories": [
+            "int_overflow"
+          ],
+          "expected_rules": [
+            "alloc_size_overflow_check_added",
+            "safe_size_math_helper_added"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "int_overflow"
+    },
+    {
+      "cve_id": "CVE-2025-24993",
+      "driver": "ntfs.sys",
+      "description": "NTFS \u2014 MFT metadata heap buffer overflow via crafted VHD allows RCE",
+      "vuln_version": {
+        "build": "10.0.22621.4830",
+        "kb": "KB5050021",
+        "sha256": "dec2dfb73437e0d6392c20269e9a13c49041b9529ac35d4834285a4ef4e4391f",
+        "winbindex_filename": "ntfs.sys",
+        "winbindex_version_prefix": "10.0.22621.4830"
+      },
+      "fix_version": {
+        "build": "10.0.22621.4890",
+        "kb": "KB5051987",
+        "sha256": "237c6388d4c94ef66938249925b98f423c4f4f78b4818f6ad4662c00f0b749f3",
+        "winbindex_filename": "ntfs.sys",
+        "winbindex_version_prefix": "10.0.22621.4890"
+      },
+      "expected_detections": [
+        {
+          "function_pattern": "NtfsReadMftRecord|NtfsReadFileRecord|FUN_1c0",
+          "expected_categories": [
+            "bounds_check"
+          ],
+          "expected_rules": [
+            "added_len_check_before_memcpy",
+            "added_struct_size_validation"
+          ],
+          "min_confidence": 0.7
+        }
+      ],
+      "expected_category_primary": "bounds_check"
     }
   ]
 }
