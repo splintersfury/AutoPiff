@@ -1,9 +1,27 @@
-import type { Analysis, AnalysisListResponse, Finding } from "@/types";
+import type {
+  Analysis,
+  AnalysisListResponse,
+  CorpusOverview,
+  CorpusSource,
+  CVECorpusEntry,
+  Finding,
+} from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+async function postJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
   if (!res.ok) {
     throw new Error(`API error: ${res.status} ${res.statusText}`);
   }
@@ -28,4 +46,24 @@ export async function getFindings(
   if (minScore) params.set("min_score", String(minScore));
   const qs = params.toString();
   return fetchJson(`/api/analyses/${id}/findings${qs ? `?${qs}` : ""}`);
+}
+
+export async function getCorpus(): Promise<CorpusOverview> {
+  return fetchJson("/api/corpus");
+}
+
+export async function getCorpusCVE(cveId: string): Promise<CVECorpusEntry> {
+  return fetchJson(`/api/corpus/${cveId}`);
+}
+
+export async function triggerCorpusDownload(): Promise<{ status: string }> {
+  return postJson("/api/corpus/download");
+}
+
+export async function triggerCorpusEvaluate(): Promise<{ status: string }> {
+  return postJson("/api/corpus/evaluate");
+}
+
+export async function getCorpusSource(cveId: string): Promise<CorpusSource> {
+  return fetchJson(`/api/corpus/${cveId}/source`);
 }

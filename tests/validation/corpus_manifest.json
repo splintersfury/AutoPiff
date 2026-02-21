@@ -1,30 +1,34 @@
 {
   "version": 1,
-  "description": "AutoPiff CVE validation corpus — ground truth for rule engine evaluation",
+  "description": "AutoPiff CVE validation corpus \u2014 ground truth for rule engine evaluation",
   "cves": [
     {
       "cve_id": "CVE-2024-30085",
       "driver": "cldflt.sys",
-      "description": "Cloud Files Mini Filter — missing size check before memcpy leads to heap overflow",
+      "description": "Cloud Files Mini Filter \u2014 missing size check before memcpy leads to heap overflow",
       "vuln_version": {
-        "build": "10.0.22621.3593",
-        "kb": "KB5037771",
-        "sha256": null,
+        "build": "10.0.22621.3672",
+        "kb": "KB5037853",
+        "sha256": "fff42100bfe8870c3988f572d35c1f4d3f194a35e2e6673bdd26cbc5da78e828",
         "winbindex_filename": "cldflt.sys",
-        "winbindex_version_prefix": "10.0.22621.3593"
+        "winbindex_version_prefix": "10.0.22621.3672"
       },
       "fix_version": {
-        "build": "10.0.22621.3737",
+        "build": "10.0.22621.3733",
         "kb": "KB5039212",
-        "sha256": null,
+        "sha256": "0b495138e1ce25decdd3a940fd584288bd219131a35b57a977aefb214503ca88",
         "winbindex_filename": "cldflt.sys",
-        "winbindex_version_prefix": "10.0.22621.3737"
+        "winbindex_version_prefix": "10.0.22621.3733"
       },
       "expected_detections": [
         {
           "function_pattern": "HsmIBitmapNORMALOpen|FUN_1c005",
-          "expected_categories": ["bounds_check"],
-          "expected_rules": ["added_len_check_before_memcpy"],
+          "expected_categories": [
+            "bounds_check"
+          ],
+          "expected_rules": [
+            "added_len_check_before_memcpy"
+          ],
           "min_confidence": 0.85
         }
       ],
@@ -33,27 +37,32 @@
     {
       "cve_id": "CVE-2023-21768",
       "driver": "afd.sys",
-      "description": "AFD WinSock — missing ProbeForWrite allows kernel write-what-where via IO ring",
+      "description": "AFD WinSock \u2014 missing ProbeForWrite allows kernel write-what-where via IO ring",
       "vuln_version": {
-        "build": "10.0.22621.963",
-        "kb": "KB5021255",
-        "sha256": null,
+        "build": "10.0.22621.608",
+        "kb": "KB5020044",
+        "sha256": "c57893dd8621eb79db5c6ff6ef7f5796919041e4c3a7bbafcb05560a29385fb8",
         "winbindex_filename": "afd.sys",
-        "winbindex_version_prefix": "10.0.22621.963"
+        "winbindex_version_prefix": "10.0.22621.608"
       },
       "fix_version": {
         "build": "10.0.22621.1105",
         "kb": "KB5022303",
-        "sha256": null,
+        "sha256": "0cf15707afbc74e2dbc0c507941f33b64a4cc0f6c3a631889a2d8d5bdbe27bf0",
         "winbindex_filename": "afd.sys",
         "winbindex_version_prefix": "10.0.22621.1105"
       },
       "expected_detections": [
         {
           "function_pattern": "AfdRioValidateRequestBuffer|AfdNotifyRioRemoveCompletion|FUN_1c00",
-          "expected_categories": ["user_boundary_check"],
-          "expected_rules": ["added_probe_for_write", "added_probe_call"],
-          "min_confidence": 0.70
+          "expected_categories": [
+            "user_boundary_check"
+          ],
+          "expected_rules": [
+            "added_probe_for_write",
+            "added_probe_call"
+          ],
+          "min_confidence": 0.7
         }
       ],
       "expected_category_primary": "user_boundary_check"
@@ -61,27 +70,32 @@
     {
       "cve_id": "CVE-2024-38063",
       "driver": "tcpip.sys",
-      "description": "TCP/IP stack — integer underflow in IPv6 packet reassembly allows RCE",
+      "description": "TCP/IP stack \u2014 integer underflow in IPv6 packet reassembly allows RCE",
       "vuln_version": {
-        "build": "10.0.22621.3880",
-        "kb": "KB5040442",
-        "sha256": null,
+        "build": "10.0.22621.3958",
+        "kb": "KB5040527",
+        "sha256": "7cfb330c436cf064755961a3ed4f304148a2af19d325ef30a91f217958de55e7",
         "winbindex_filename": "tcpip.sys",
-        "winbindex_version_prefix": "10.0.22621.3880"
+        "winbindex_version_prefix": "10.0.22621.3958"
       },
       "fix_version": {
-        "build": "10.0.22621.4037",
+        "build": "10.0.22621.4036",
         "kb": "KB5041585",
-        "sha256": null,
+        "sha256": "d408057b4a9cf5a03779e44f17f4f5d527d0e645a8cb5556a3b485f56b1510d4",
         "winbindex_filename": "tcpip.sys",
-        "winbindex_version_prefix": "10.0.22621.4037"
+        "winbindex_version_prefix": "10.0.22621.4036"
       },
       "expected_detections": [
         {
           "function_pattern": "Ipv6pReassembleDatagram|Ipv6pReceiveFragment|IppReassembleDatagram|FUN_1c0",
-          "expected_categories": ["int_overflow"],
-          "expected_rules": ["added_overflow_check_on_arithmetic", "added_underflow_guard"],
-          "min_confidence": 0.70
+          "expected_categories": [
+            "int_overflow"
+          ],
+          "expected_rules": [
+            "added_overflow_check_on_arithmetic",
+            "added_underflow_guard"
+          ],
+          "min_confidence": 0.7
         }
       ],
       "expected_category_primary": "int_overflow"
@@ -89,27 +103,33 @@
     {
       "cve_id": "CVE-2023-28252",
       "driver": "clfs.sys",
-      "description": "Common Log File System — OOB write via corrupted base log offset",
+      "description": "Common Log File System \u2014 OOB write via corrupted base log offset",
       "vuln_version": {
-        "build": "10.0.22621.1413",
+        "build": "10.0.22621.1265",
         "kb": "KB5023706",
-        "sha256": null,
+        "sha256": "cf0ea0bb9ad857f41e2715df822f189bef955804c0bb5bfe3829f90789ede1b3",
         "winbindex_filename": "clfs.sys",
-        "winbindex_version_prefix": "10.0.22621.1413"
+        "winbindex_version_prefix": "10.0.22621.1265"
       },
       "fix_version": {
         "build": "10.0.22621.1555",
         "kb": "KB5025239",
-        "sha256": null,
+        "sha256": "af24c99230f479469b4c9c3cab68e3260860bee0e4ea048f95a2b17a18298e95",
         "winbindex_filename": "clfs.sys",
         "winbindex_version_prefix": "10.0.22621.1555"
       },
       "expected_detections": [
         {
           "function_pattern": "CClfsBaseFilePersisted::WriteMetadataBlock|ClfsBaseFlushMetadata|CClfsLogFcbPhysical|FUN_1c0",
-          "expected_categories": ["bounds_check"],
-          "expected_rules": ["added_len_check_before_memcpy", "added_bounds_check_on_offset", "added_index_range_check"],
-          "min_confidence": 0.70
+          "expected_categories": [
+            "bounds_check"
+          ],
+          "expected_rules": [
+            "added_len_check_before_memcpy",
+            "added_bounds_check_on_offset",
+            "added_index_range_check"
+          ],
+          "min_confidence": 0.7
         }
       ],
       "expected_category_primary": "bounds_check"
@@ -117,27 +137,33 @@
     {
       "cve_id": "CVE-2024-26229",
       "driver": "csc.sys",
-      "description": "Client-Side Caching — missing access check allows EoP",
+      "description": "Client-Side Caching \u2014 missing access check allows EoP",
       "vuln_version": {
-        "build": "10.0.22621.3296",
-        "kb": "KB5035853",
-        "sha256": null,
+        "build": "10.0.22621.1",
+        "kb": "RTM",
+        "sha256": "27e64492a1051f90f1a9d4d240841d59af881a17bd8ef08580792b919857148b",
         "winbindex_filename": "csc.sys",
-        "winbindex_version_prefix": "10.0.22621.3296"
+        "winbindex_version_prefix": "10.0.22621.1"
       },
       "fix_version": {
         "build": "10.0.22621.3447",
         "kb": "KB5036893",
-        "sha256": null,
+        "sha256": "07335ac9275d5641a823afe902babcc19ed189ee42533cebfd9ed9565e003069",
         "winbindex_filename": "csc.sys",
         "winbindex_version_prefix": "10.0.22621.3447"
       },
       "expected_detections": [
         {
           "function_pattern": "CscDevFcbXXXControlFile|R0Ioctl|FUN_1c0",
-          "expected_categories": ["authorization"],
-          "expected_rules": ["added_access_check", "added_previous_mode_gate", "added_privilege_check"],
-          "min_confidence": 0.70
+          "expected_categories": [
+            "authorization"
+          ],
+          "expected_rules": [
+            "added_access_check",
+            "added_previous_mode_gate",
+            "added_privilege_check"
+          ],
+          "min_confidence": 0.7
         }
       ],
       "expected_category_primary": "authorization"
@@ -145,27 +171,33 @@
     {
       "cve_id": "CVE-2024-38193",
       "driver": "afd.sys",
-      "description": "AFD — use-after-free race on Registered I/O buffers allows EoP",
+      "description": "AFD \u2014 use-after-free race on Registered I/O buffers allows EoP",
       "vuln_version": {
-        "build": "10.0.22621.3880",
-        "kb": "KB5040442",
-        "sha256": null,
+        "build": "10.0.22621.3672",
+        "kb": "KB5039212",
+        "sha256": "d71cebccabb6383ded5ca3b49e0a442fb90724a4b791f7367994cf9868fce858",
         "winbindex_filename": "afd.sys",
-        "winbindex_version_prefix": "10.0.22621.3880"
+        "winbindex_version_prefix": "10.0.22621.3672"
       },
       "fix_version": {
-        "build": "10.0.22621.4037",
+        "build": "10.0.22621.4036",
         "kb": "KB5041585",
-        "sha256": null,
+        "sha256": "fcda7295d31cfed72f47a6bd99d167c9fb9e7cc542011cbc23021dcb4db7ef6a",
         "winbindex_filename": "afd.sys",
-        "winbindex_version_prefix": "10.0.22621.4037"
+        "winbindex_version_prefix": "10.0.22621.4036"
       },
       "expected_detections": [
         {
           "function_pattern": "AfdRioDeregisterBuffer|AfdRioCloseCompletion|FUN_1c0",
-          "expected_categories": ["lifetime_fix"],
-          "expected_rules": ["added_refcount_guard", "added_use_after_free_guard", "added_null_check_before_deref"],
-          "min_confidence": 0.70
+          "expected_categories": [
+            "lifetime_fix"
+          ],
+          "expected_rules": [
+            "added_refcount_guard",
+            "added_use_after_free_guard",
+            "added_null_check_before_deref"
+          ],
+          "min_confidence": 0.7
         }
       ],
       "expected_category_primary": "lifetime_fix"
@@ -173,27 +205,32 @@
     {
       "cve_id": "CVE-2023-36036",
       "driver": "cldflt.sys",
-      "description": "Cloud Files Mini Filter — heap overflow via crafted reparse data",
+      "description": "Cloud Files Mini Filter \u2014 heap overflow via crafted reparse data",
       "vuln_version": {
-        "build": "10.0.22621.2428",
-        "kb": "KB5031354",
-        "sha256": null,
+        "build": "10.0.22621.2506",
+        "kb": "KB5031455",
+        "sha256": "dfb377691e318484e7fbe74d3cd5010898081b452244a8477516693ff860c340",
         "winbindex_filename": "cldflt.sys",
-        "winbindex_version_prefix": "10.0.22621.2428"
+        "winbindex_version_prefix": "10.0.22621.2506"
       },
       "fix_version": {
         "build": "10.0.22621.2715",
         "kb": "KB5032190",
-        "sha256": null,
+        "sha256": "e30c80bdc006ae4c5b64e4751554fef852345229fea82891faa2bdfd8a180f5e",
         "winbindex_filename": "cldflt.sys",
         "winbindex_version_prefix": "10.0.22621.2715"
       },
       "expected_detections": [
         {
           "function_pattern": "HsmFltProcessReparse|HsmpRpReadBuffer|HsmpRpWriteBuffer|FUN_1c0",
-          "expected_categories": ["bounds_check"],
-          "expected_rules": ["added_len_check_before_memcpy", "added_bounds_check_on_offset"],
-          "min_confidence": 0.70
+          "expected_categories": [
+            "bounds_check"
+          ],
+          "expected_rules": [
+            "added_len_check_before_memcpy",
+            "added_bounds_check_on_offset"
+          ],
+          "min_confidence": 0.7
         }
       ],
       "expected_category_primary": "bounds_check"
@@ -201,27 +238,33 @@
     {
       "cve_id": "CVE-2024-30088",
       "driver": "ntoskrnl.exe",
-      "description": "NT Kernel — TOCTOU race in AuthzBasepCopyoutInternalSecurityAttributes",
+      "description": "NT Kernel \u2014 TOCTOU race in AuthzBasepCopyoutInternalSecurityAttributes",
       "vuln_version": {
-        "build": "10.0.22621.3593",
-        "kb": "KB5037771",
-        "sha256": null,
+        "build": "10.0.22621.3672",
+        "kb": "KB5037853",
+        "sha256": "abf6854325023ec00811fb44f6abc7a00d2af5e17171ad9a7339ca3e8d75f81d",
         "winbindex_filename": "ntoskrnl.exe",
-        "winbindex_version_prefix": "10.0.22621.3593"
+        "winbindex_version_prefix": "10.0.22621.3672"
       },
       "fix_version": {
-        "build": "10.0.22621.3737",
+        "build": "10.0.22621.3733",
         "kb": "KB5039212",
-        "sha256": null,
+        "sha256": "d2c63f71382ab464c9b243e4f19f123fb4b44917468ddb6928a57f90fe94664a",
         "winbindex_filename": "ntoskrnl.exe",
-        "winbindex_version_prefix": "10.0.22621.3737"
+        "winbindex_version_prefix": "10.0.22621.3733"
       },
       "expected_detections": [
         {
           "function_pattern": "AuthzBasepCopyoutInternalSecurityAttributes|NtAccessCheckByTypeAndAuditAlarm|FUN_1400",
-          "expected_categories": ["race_condition"],
-          "expected_rules": ["added_lock_around_toctou", "added_spinlock_guard", "added_mutex_guard"],
-          "min_confidence": 0.70
+          "expected_categories": [
+            "race_condition"
+          ],
+          "expected_rules": [
+            "added_lock_around_toctou",
+            "added_spinlock_guard",
+            "added_mutex_guard"
+          ],
+          "min_confidence": 0.7
         }
       ],
       "expected_category_primary": "race_condition"

@@ -130,3 +130,91 @@ export interface AnalysisListResponse {
   analyses: AnalysisListItem[];
   total: number;
 }
+
+// --- Corpus Validation ---
+
+export type CorpusStatus = "pending" | "downloaded" | "decompiled" | "evaluated";
+
+export interface DetectionDetail {
+  function_pattern: string;
+  matched_function?: string | null;
+  expected_category: string;
+  expected_rules: string[];
+  min_confidence: number;
+  actual_category?: string | null;
+  actual_rule?: string | null;
+  actual_confidence?: number | null;
+  is_tp: boolean;
+}
+
+export interface UnexpectedHit {
+  function: string;
+  rule_id: string;
+  category: string;
+  confidence: number;
+}
+
+export interface CVECorpusEntry {
+  cve_id: string;
+  driver: string;
+  description: string;
+  expected_category_primary: string;
+  vuln_build: string;
+  fix_build: string;
+  vuln_kb: string;
+  fix_kb: string;
+  expected_detections_count: number;
+  detection_details: DetectionDetail[];
+  unexpected_hits: UnexpectedHit[];
+  status: CorpusStatus;
+  tp: number;
+  fn: number;
+  fp: number;
+  total_changed: number;
+  total_hits: number;
+  error?: string | null;
+}
+
+export interface CategoryMetrics {
+  category: string;
+  cve_count: number;
+  tp: number;
+  fn: number;
+  fp: number;
+  precision?: number | null;
+  recall?: number | null;
+  f1?: number | null;
+}
+
+export interface DetectionRates {
+  vuln_function_flagged: number;
+  correct_category: number;
+  exact_rule: number;
+}
+
+export interface ConfidenceStats {
+  mean?: number | null;
+  min?: number | null;
+  max?: number | null;
+  count: number;
+}
+
+export interface CorpusOverview {
+  total_cves: number;
+  downloaded: number;
+  decompiled: number;
+  evaluated: number;
+  overall_precision?: number | null;
+  overall_recall?: number | null;
+  overall_f1?: number | null;
+  per_category: CategoryMetrics[];
+  detection_rates: DetectionRates;
+  confidence_stats: ConfidenceStats;
+  cves: CVECorpusEntry[];
+}
+
+export interface CorpusSource {
+  cve_id: string;
+  vuln_source?: string | null;
+  fix_source?: string | null;
+}

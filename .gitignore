@@ -34,7 +34,7 @@ node_modules/
 out/
 
 # Validation corpus (downloaded binaries + decompiled cache)
-corpus/
+/corpus/
 
 # Docker volumes (if local)
 mwdb-uploads/

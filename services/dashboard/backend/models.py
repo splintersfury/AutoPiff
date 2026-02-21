@@ -198,3 +198,94 @@ class HealthResponse(BaseModel):
 class AnalysisListResponse(BaseModel):
     analyses: list[AnalysisListItem]
     total: int
+
+
+# --- Corpus Validation ---
+
+
+class CorpusStatus(str, Enum):
+    pending = "pending"
+    downloaded = "downloaded"
+    decompiled = "decompiled"
+    evaluated = "evaluated"
+
+
+class DetectionDetail(BaseModel):
+    function_pattern: str = ""
+    matched_function: Optional[str] = None
+    expected_category: str = ""
+    expected_rules: list[str] = []
+    min_confidence: float = 0.0
+    actual_category: Optional[str] = None
+    actual_rule: Optional[str] = None
+    actual_confidence: Optional[float] = None
+    is_tp: bool = False
+
+
+class UnexpectedHit(BaseModel):
+    """A false positive: rule fired on a function with no expected detection."""
+    function: str
+    rule_id: str
+    category: str
+    confidence: float = 0.0
+
+
+class CVECorpusEntry(BaseModel):
+    cve_id: str
+    driver: str
+    description: str = ""
+    expected_category_primary: str = ""
+    vuln_build: str = ""
+    fix_build: str = ""
+    vuln_kb: str = ""
+    fix_kb: str = ""
+    expected_detections_count: int = 0
+    detection_details: list[DetectionDetail] = []
+    unexpected_hits: list[UnexpectedHit] = []
+    status: CorpusStatus = CorpusStatus.pending
+    tp: int = 0
+    fn: int = 0
+    fp: int = 0
+    total_changed: int = 0
+    total_hits: int = 0
+    error: Optional[str] = None
+
+
+class CategoryMetrics(BaseModel):
+    category: str
+    cve_count: int = 0
+    tp: int = 0
+    fn: int = 0
+    fp: int = 0
+    precision: Optional[float] = None
+    recall: Optional[float] = None
+    f1: Optional[float] = None
+
+
+class DetectionRates(BaseModel):
+    """High-level detection rates across the evaluated corpus."""
+    vuln_function_flagged: float = 0.0
+    correct_category: float = 0.0
+    exact_rule: float = 0.0
+
+
+class ConfidenceStats(BaseModel):
+    """Confidence distribution for true positive detections."""
+    mean: Optional[float] = None
+    min: Optional[float] = None
+    max: Optional[float] = None
+    count: int = 0
+
+
+class CorpusOverview(BaseModel):
+    total_cves: int = 0
+    downloaded: int = 0
+    decompiled: int = 0
+    evaluated: int = 0
+    overall_precision: Optional[float] = None
+    overall_recall: Optional[float] = None
+    overall_f1: Optional[float] = None
+    per_category: list[CategoryMetrics] = []
+    detection_rates: DetectionRates = DetectionRates()
+    confidence_stats: ConfidenceStats = ConfidenceStats()
+    cves: list[CVECorpusEntry] = []

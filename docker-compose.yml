@@ -255,11 +255,15 @@ services:
       MWDB_API_URL: http://mwdb-core:8080/api/
       MWDB_API_KEY: ${MWDB_API_KEY:-}
       AUTOPIFF_ANALYSES_DIR: /data/analyses
+      AUTOPIFF_CORPUS_DIR: /data/corpus
+      AUTOPIFF_MANIFEST_PATH: /data/corpus_manifest.json
       CORS_ORIGINS: "http://localhost:3000,http://autopiff-dashboard:3000"
     ports:
       - "8000:8000"
     volumes:
       - dashboard-data:/data/analyses
+      - ./corpus:/data/corpus:ro
+      - ./tests/validation/corpus_manifest.json:/data/corpus_manifest.json:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
