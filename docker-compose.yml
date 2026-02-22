@@ -339,6 +339,38 @@ services:
           memory: 512M
 
   # ==========================================================================
+  # KernelSense: LLM-Augmented Vulnerability Reasoning
+  # ==========================================================================
+
+  # Parallel consumer of Stage 6 ranking — enriches findings with LLM analysis
+  autopiff-kernelsense:
+    build:
+      context: .
+      dockerfile: services/karton-kernelsense/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      karton-system:
+        condition: service_started
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      KARTON_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      KARTON_S3_ADDRESS: minio:9000
+      KARTON_S3_BUCKET: karton
+      KARTON_S3_SECURE: "false"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      KERNELSENSE_MODEL: claude-sonnet-4-6
+      KERNELSENSE_SCORE_THRESHOLD: "6.0"
+      KERNELSENSE_FP_THRESHOLD: "4.0"
+    volumes:
+      - ./karton.ini:/etc/karton/karton.ini:ro
+      - ghidra-cache:/tmp/ghidra_cache:ro
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # ==========================================================================
   # Optional: Driver Classifier (routes drivers to AutoPiff)
   # ==========================================================================
 

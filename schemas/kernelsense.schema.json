@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AutoPiff KernelSense Output",
+  "description": "LLM-augmented vulnerability reasoning output from KernelSense stage",
+  "type": "object",
+  "required": ["autopiff_stage", "findings", "summary"],
+  "properties": {
+    "autopiff_stage": {
+      "type": "string",
+      "const": "kernelsense"
+    },
+    "driver_new": {
+      "type": "object",
+      "properties": {
+        "sha256": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "driver_old": {
+      "type": "object",
+      "properties": {
+        "sha256": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["function", "original_score"],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 0 },
+          "function": { "type": "string" },
+          "original_score": { "type": "number", "minimum": 0, "maximum": 15 },
+          "category": { "type": "string" },
+          "rule_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "llm_assessment": {
+            "type": "object",
+            "properties": {
+              "is_security_fix": { "type": "boolean" },
+              "bug_class": { "type": "string" },
+              "exploitability": {
+                "type": "string",
+                "enum": ["likely", "possible", "unlikely", "not-applicable", "unknown"]
+              },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+              "reasoning": { "type": "string" }
+            },
+            "required": ["is_security_fix", "bug_class", "exploitability", "reasoning"]
+          },
+          "false_positive_check": {
+            "type": "object",
+            "properties": {
+              "is_false_positive": { "type": "boolean" },
+              "reasoning": { "type": "string" },
+              "pattern": {
+                "type": ["string", "null"],
+                "enum": ["refactoring", "hardening", "logging", "reference-counting", "metadata", "other", null]
+              },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+            },
+            "required": ["is_false_positive", "reasoning"]
+          },
+          "variant_candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "driver": { "type": "string" },
+                "function": { "type": "string" },
+                "similarity": { "type": "number", "minimum": 0, "maximum": 1 },
+                "is_variant": { "type": "boolean" },
+                "match_type": {
+                  "type": "string",
+                  "enum": ["exact-match", "variant", "related"]
+                },
+                "reasoning": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_analyzed"],
+      "properties": {
+        "total_analyzed": { "type": "integer", "minimum": 0 },
+        "security_fixes": { "type": "integer", "minimum": 0 },
+        "false_positives": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
