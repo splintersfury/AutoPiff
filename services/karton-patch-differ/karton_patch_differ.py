@@ -375,15 +375,38 @@ class PatchDifferKarton(Karton):
 
         logger.info(f"Decompiling {filename}...")
         timeout = int(os.environ.get("AUTOPIFF_GHIDRA_TIMEOUT", "2400"))
+        max_retries = int(os.environ.get("AUTOPIFF_GHIDRA_MAX_RETRIES", "3"))
 
-        try:
-            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                  timeout=timeout)
-            if proc.returncode != 0:
-                logger.warning(f"Ghidra exited with code {proc.returncode} for {filename}")
+        last_error = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                      timeout=timeout)
+                if proc.returncode == 0:
+                    last_error = None
+                    break
+                last_error = f"exit code {proc.returncode}"
+                logger.warning(
+                    f"Ghidra exited with code {proc.returncode} for {filename} "
+                    f"(attempt {attempt}/{max_retries})"
+                )
                 logger.debug(f"Ghidra stderr: {proc.stderr.decode(errors='replace')[:2000]}")
-        except subprocess.TimeoutExpired:
-            logger.error(f"Ghidra timed out for {filename}")
+            except subprocess.TimeoutExpired:
+                last_error = f"timeout after {timeout}s"
+                logger.error(f"Ghidra timed out for {filename} (attempt {attempt}/{max_retries})")
+
+            if attempt < max_retries:
+                import time, shutil
+                wait = 5 * (2 ** (attempt - 1))
+                logger.info(f"Retrying decompilation in {wait}s...")
+                # Clean up Ghidra project for retry
+                proj_dir = os.path.join(output_dir, "..", "ghidra_proj")
+                if os.path.exists(proj_dir):
+                    shutil.rmtree(proj_dir, ignore_errors=True)
+                time.sleep(wait)
+
+        if last_error:
+            logger.error(f"Decompilation of {filename} failed after {max_retries} attempts: {last_error}")
             return None
 
         expected_output = os.path.join(output_dir, filename + ".c")
@@ -394,6 +417,7 @@ class PatchDifferKarton(Karton):
         if files:
             return os.path.join(output_dir, files[0])
 
+        logger.error(f"Ghidra succeeded but produced no .c output for {filename}")
         return None
 
     def _get_decompiled_source(self, sample: MWDBFile, temp_dir: str) -> Optional[str]:
@@ -1033,7 +1057,12 @@ class PatchDifferKarton(Karton):
                 old_src_path = self._get_decompiled_source(old_sample, temp_dir)
 
                 if not new_src_path or not old_src_path:
-                    logger.error("Decompilation failed")
+                    failed = []
+                    if not new_src_path:
+                        failed.append(f"new binary ({new_info.sha256[:12]})")
+                    if not old_src_path:
+                        failed.append(f"old binary ({old_info.sha256[:12]})")
+                    logger.error(f"Decompilation failed for: {', '.join(failed)}")
                     return
 
                 # Parse functions

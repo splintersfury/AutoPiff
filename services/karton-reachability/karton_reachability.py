@@ -3,11 +3,15 @@ import json
 import subprocess
 import logging
 import tempfile
+import time
 from karton.core import Karton, Task, Resource
-from jsonschema import validate
+from jsonschema import validate, ValidationError
 from mwdblib import MWDB
 
 logger = logging.getLogger("autopiff.reachability")
+
+GHIDRA_MAX_RETRIES = int(os.environ.get("AUTOPIFF_GHIDRA_MAX_RETRIES", "3"))
+GHIDRA_RETRY_BACKOFF = int(os.environ.get("AUTOPIFF_GHIDRA_RETRY_BACKOFF", "5"))
 
 
 class ReachabilityKarton(Karton):
@@ -85,19 +89,46 @@ class ReachabilityKarton(Karton):
                 "-deleteProject"
             ]
 
+            # Validate binary is a PE before sending to Ghidra
+            with open(binary_path, "rb") as f:
+                magic = f.read(2)
+            if magic != b"MZ":
+                self.log.error("Binary is not a valid PE (no MZ header), skipping")
+                return
+
             self.log.info(f"Running Ghidra: {' '.join(cmd)}")
 
             timeout = int(os.environ.get("AUTOPIFF_GHIDRA_TIMEOUT", "900"))
-            try:
-                proc = subprocess.run(cmd, check=True, timeout=timeout, capture_output=True)
-            except subprocess.CalledProcessError as e:
-                self.log.error(f"Ghidra failed with exit code {e.returncode}")
-                self.log.error(f"STDOUT: {e.stdout.decode(errors='replace')}")
-                self.log.error(f"STDERR: {e.stderr.decode(errors='replace')}")
-                raise RuntimeError(f"Ghidra analysis failed: {e.stderr.decode(errors='replace')}")
-            except subprocess.TimeoutExpired as e:
-                self.log.error(f"Ghidra timed out after {timeout}s")
-                raise RuntimeError(f"Ghidra analysis timed out after {timeout}s")
+            last_error = None
+
+            for attempt in range(1, GHIDRA_MAX_RETRIES + 1):
+                # Recreate project dir for retry (Ghidra may leave corrupt state)
+                if attempt > 1:
+                    import shutil
+                    if os.path.exists(project_path):
+                        shutil.rmtree(project_path, ignore_errors=True)
+                    os.makedirs(project_path, exist_ok=True)
+                    wait = GHIDRA_RETRY_BACKOFF * (2 ** (attempt - 2))
+                    self.log.warning(f"Retrying Ghidra (attempt {attempt}/{GHIDRA_MAX_RETRIES}) after {wait}s")
+                    time.sleep(wait)
+
+                try:
+                    proc = subprocess.run(cmd, check=True, timeout=timeout, capture_output=True)
+                    last_error = None
+                    break  # Success
+                except subprocess.TimeoutExpired:
+                    last_error = f"Ghidra timed out after {timeout}s"
+                    self.log.error(f"{last_error} (attempt {attempt}/{GHIDRA_MAX_RETRIES})")
+                except subprocess.CalledProcessError as e:
+                    rc = e.returncode
+                    stderr = e.stderr.decode(errors='replace')[:2000]
+                    last_error = f"Ghidra exit code {rc}: {stderr}"
+                    self.log.error(f"{last_error} (attempt {attempt}/{GHIDRA_MAX_RETRIES})")
+                    # OOM kill (137) or signal kill (negative codes) are retryable
+                    # Other errors may also be transient (JVM startup, file locks)
+
+            if last_error:
+                raise RuntimeError(f"Ghidra failed after {GHIDRA_MAX_RETRIES} attempts: {last_error}")
 
             if not os.path.exists(out_path):
                 raise RuntimeError("Ghidra did not produce output JSON")
@@ -114,7 +145,12 @@ class ReachabilityKarton(Karton):
                 self.log.warning("No decompiled .c produced by Ghidra script")
 
             # Validate Schema
-            validate(instance=result, schema=self.schema)
+            try:
+                validate(instance=result, schema=self.schema)
+            except ValidationError as e:
+                self.log.error(f"Reachability output schema validation failed: {e.message}")
+                self.log.error(f"Failed at path: {'.'.join(str(p) for p in e.absolute_path)}")
+                raise RuntimeError(f"Schema validation failed: {e.message}")
 
             # Send to Stage 6 (Ranking)
             out_task = task.derive_task({

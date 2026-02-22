@@ -13,7 +13,7 @@ from collections import defaultdict
 
 import yaml
 from karton.core import Karton, Task
-from jsonschema import validate
+from jsonschema import validate, ValidationError
 
 logger = logging.getLogger("autopiff.ranking")
 
@@ -111,7 +111,12 @@ class RankingKarton(Karton):
         }
 
         # Validate output
-        validate(instance=ranking, schema=self.schema)
+        try:
+            validate(instance=ranking, schema=self.schema)
+        except ValidationError as e:
+            self.log.error(f"Ranking schema validation failed: {e.message}")
+            self.log.error(f"Failed at path: {'.'.join(str(p) for p in e.absolute_path)}")
+            raise RuntimeError(f"Ranking schema validation failed: {e.message}")
 
         self.log.info(
             f"Ranked {len(findings)} findings "

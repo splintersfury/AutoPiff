@@ -130,24 +130,40 @@ class AutoPiffAlerter(Karton):
             self._store_failed_alert(msg, "no_credentials")
             return
 
-        try:
-            resp = requests.post(
-                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-                json={
-                    "chat_id": TELEGRAM_CHAT_ID,
-                    "text": msg,
-                    "parse_mode": "Markdown",
-                },
-                timeout=10,
-            )
-            if resp.status_code == 200:
-                logger.info("Telegram alert sent successfully")
-            else:
-                logger.error(f"Telegram API error: {resp.status_code} {resp.text}")
-                self._store_failed_alert(msg, f"http_{resp.status_code}")
-        except Exception as e:
-            logger.error(f"Failed to send Telegram alert: {e}")
-            self._store_failed_alert(msg, str(e))
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                resp = requests.post(
+                    f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                    json={
+                        "chat_id": TELEGRAM_CHAT_ID,
+                        "text": msg,
+                        "parse_mode": "Markdown",
+                    },
+                    timeout=15,
+                )
+                if resp.status_code == 200:
+                    logger.info("Telegram alert sent successfully")
+                    return
+                elif resp.status_code == 429:
+                    # Rate limited — retry with backoff
+                    retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
+                    logger.warning(f"Telegram rate limited, retrying in {retry_after}s (attempt {attempt}/{max_retries})")
+                    import time
+                    time.sleep(retry_after)
+                    continue
+                else:
+                    logger.error(f"Telegram API error: {resp.status_code} {resp.text}")
+                    self._store_failed_alert(msg, f"http_{resp.status_code}")
+                    return
+            except requests.RequestException as e:
+                logger.error(f"Telegram request failed (attempt {attempt}/{max_retries}): {e}")
+                if attempt < max_retries:
+                    import time
+                    time.sleep(2 ** attempt)
+                    continue
+                self._store_failed_alert(msg, str(e))
+                return
 
     def _store_alerts(self, findings, driver_sha):
         now = time.time()
