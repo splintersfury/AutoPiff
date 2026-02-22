@@ -55,4 +55,4 @@ vt_daily_sweep:
       query: "name:*.sys tag:signed ls:1d+ fs:2026-01-01+"
     # Drivers flagged by VT as containing driver-level code, signed, recent
     - name: new-tagged-drivers-2026
-      query: "tag:driver tag:signed ls:1d+ fs:2026-01-01+ NOT name:*.sys"
+      query: "tag:contains-drv tag:signed ls:1d+ fs:2026-01-01+ NOT name:*.sys"

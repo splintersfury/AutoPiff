@@ -203,14 +203,17 @@ def sweep(
                         redis_client.sadd(known_key, sha256)
                         continue
 
-                    # Extract metadata before downloading
+                    # Extract metadata from search result attributes
                     file_name = ""
                     signer = ""
                     try:
                         file_name = getattr(file_obj, "meaningful_name", "") or ""
                         sig_info = getattr(file_obj, "signature_info", None)
-                        if sig_info and isinstance(sig_info, dict):
-                            signer = sig_info.get("subject", "")
+                        if sig_info:
+                            # VT returns "signers" as "Signer1; CA1; CA2; ..."
+                            signers_str = sig_info.get("signers", "") if hasattr(sig_info, "get") else ""
+                            if signers_str:
+                                signer = signers_str.split(";")[0].strip()
                     except Exception:
                         pass
 
