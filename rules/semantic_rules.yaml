@@ -51,6 +51,9 @@ categories:
     description: Added MMIO/DMA bounds validation or mapping checks.
   - id: wdf_hardening
     description: Added WDF request buffer or completion guards.
+  # --- Attack surface categories (new feature detection) ---
+  - id: new_attack_surface
+    description: New code introduces potential attack surface (sinks without adequate guards).
 
 rules:
 
@@ -1088,6 +1091,109 @@ rules:
         - wdf_operations
       added_checks:
         - null_check
+
+  # ==========================================================================
+  # NEW: Attack surface detection rules (new feature analysis)
+  # These rules fire on newly added functions that contain dangerous sinks
+  # without adequate mitigating guards. rule_type: attack_surface
+  # ==========================================================================
+
+  - rule_id: new_ioctl_handler
+    category: new_attack_surface
+    rule_type: attack_surface
+    confidence: 0.75
+    sink_groups:
+      - io_sanitization
+      - user_probe
+    mitigating_guards:
+      - length_check
+      - sizeof_check
+      - probe
+      - previous_mode_gate
+    plain_english_summary: New IOCTL dispatch handler introduces user-reachable attack surface.
+
+  - rule_id: new_pool_operations
+    category: new_attack_surface
+    rule_type: attack_surface
+    confidence: 0.70
+    sink_groups:
+      - pool_alloc
+    mitigating_guards:
+      - length_check
+      - overflow_check
+      - null_check
+    plain_english_summary: New code performs pool allocations without adequate size/overflow validation.
+
+  - rule_id: new_user_buffer_access
+    category: new_attack_surface
+    rule_type: attack_surface
+    confidence: 0.75
+    sink_groups:
+      - user_probe
+    mitigating_guards:
+      - probe
+      - previous_mode_gate
+      - seh_guard
+    plain_english_summary: New code accesses user-mode buffers without probe or SEH protection.
+
+  - rule_id: new_mdl_operations
+    category: new_attack_surface
+    rule_type: attack_surface
+    confidence: 0.70
+    sink_groups:
+      - mdl_operations
+    mitigating_guards:
+      - mdl_safe
+      - null_check
+      - access_mode_fix
+    plain_english_summary: New code performs MDL lock/map operations without safe mapping or NULL checks.
+
+  - rule_id: new_object_handle_ops
+    category: new_attack_surface
+    rule_type: attack_surface
+    confidence: 0.65
+    sink_groups:
+      - handle_validation
+    mitigating_guards:
+      - handle_type_validation
+      - force_access_check
+      - null_check
+    plain_english_summary: New code opens or references kernel object handles without type or access validation.
+
+  - rule_id: new_dma_mmio_access
+    category: new_attack_surface
+    rule_type: attack_surface
+    confidence: 0.70
+    sink_groups:
+      - mmio_dma
+    mitigating_guards:
+      - length_check
+      - index_bounds
+      - null_check
+    plain_english_summary: New code performs DMA/MMIO operations without bounds validation.
+
+  - rule_id: new_memory_copy_operations
+    category: new_attack_surface
+    rule_type: attack_surface
+    confidence: 0.70
+    sink_groups:
+      - memory_copy
+    mitigating_guards:
+      - length_check
+      - sizeof_check
+      - overflow_check
+    plain_english_summary: New code performs memory copy operations without bounds checking.
+
+  - rule_id: new_string_operations
+    category: new_attack_surface
+    rule_type: attack_surface
+    confidence: 0.65
+    sink_groups:
+      - string_copy
+    mitigating_guards:
+      - length_check
+      - safe_string_replacement
+    plain_english_summary: New code performs string copy/concat operations without bounded variants.
 
 # Global exclusions used by semantic extractor
 global_exclusions:

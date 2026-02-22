@@ -131,6 +131,16 @@ weights:
     wdf_request_buffer_size_check_added: 4.5
     wdf_request_completion_guard_added: 3.0
 
+    # --- Attack surface rules (new feature detection) ---
+    new_ioctl_handler: 5.0
+    new_pool_operations: 3.5
+    new_user_buffer_access: 5.0
+    new_mdl_operations: 3.5
+    new_object_handle_ops: 3.0
+    new_dma_mmio_access: 4.0
+    new_memory_copy_operations: 3.5
+    new_string_operations: 2.5
+
   # Category multipliers: small nudge, not the main driver.
   category_multiplier:
     # Original categories
@@ -157,6 +167,14 @@ weights:
     pnp_power: 0.95
     dma_mmio: 1.10
     wdf_hardening: 1.05
+    # Attack surface category
+    new_attack_surface: 0.90
+
+  # Change type multipliers: patches vs new features.
+  # New features are slightly depressed since they lack a "known vuln" signal.
+  change_type_multiplier:
+    patch: 1.0
+    new_feature: 0.85
 
   # Reachability contributions: large differentiator.
   # This is added as a bonus on top of semantic rule score.

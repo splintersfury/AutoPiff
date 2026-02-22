@@ -99,7 +99,17 @@ class AutoPiffAlerter(Karton):
         top_score = top.get("final_score", top.get("confidence", 0))
         count = len(findings)
 
-        msg = f"*AutoPiff Alert* — {count} high-scoring finding{'s' if count > 1 else ''}\n\n"
+        # Check if any findings are new attack surface
+        has_new_features = any(
+            f.get("change_type") == "new_feature" for f in findings
+        )
+
+        if has_new_features:
+            new_count = sum(1 for f in findings if f.get("change_type") == "new_feature")
+            msg = f"*AutoPiff Alert — New Attack Surface* — {count} finding{'s' if count > 1 else ''} ({new_count} new)\n\n"
+        else:
+            msg = f"*AutoPiff Alert* — {count} high-scoring finding{'s' if count > 1 else ''}\n\n"
+
         msg += f"Driver: `{driver_sha[:16]}...`\n"
         msg += f"Versions: {old_ver} -> {new_ver}\n"
         msg += f"Top score: *{top_score:.1f}*\n\n"
@@ -110,8 +120,10 @@ class AutoPiffAlerter(Karton):
             rule = finding.get("rule_id", "unknown")
             category = finding.get("category", "unknown")
             surface = finding.get("surface_area", "unknown")
+            change_type = finding.get("change_type", "patch")
+            tag = "[NEW]" if change_type == "new_feature" else "[PATCH]"
 
-            msg += f"*{i+1}.* `{func}` — *{score:.1f}*\n"
+            msg += f"*{i+1}.* {tag} `{func}` — *{score:.1f}*\n"
             msg += f"   {category} | {rule} | {surface}\n"
 
             why = finding.get("why_matters", "")

@@ -69,7 +69,25 @@
                             "lifetime_fix",
                             "user_boundary_check",
                             "int_overflow",
-                            "state_hardening"
+                            "state_hardening",
+                            "race_condition",
+                            "type_confusion",
+                            "authorization",
+                            "info_disclosure",
+                            "ioctl_hardening",
+                            "mdl_handling",
+                            "object_management",
+                            "string_handling",
+                            "pool_hardening",
+                            "crypto_hardening",
+                            "error_path_hardening",
+                            "dos_hardening",
+                            "ndis_hardening",
+                            "filesystem_filter",
+                            "pnp_power",
+                            "dma_mmio",
+                            "wdf_hardening",
+                            "new_attack_surface"
                         ]
                     },
                     "confidence": {
@@ -105,6 +123,11 @@
                             "type": "string",
                             "enum": ["ioctl", "ndis", "storage", "filesystem", "unknown"]
                         }
+                    },
+                    "change_type": {
+                        "type": "string",
+                        "enum": ["patch", "new_feature"],
+                        "description": "Whether this delta comes from a changed function (patch) or a newly added function (new_feature)"
                     }
                 }
             }

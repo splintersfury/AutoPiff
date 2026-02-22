@@ -175,7 +175,7 @@ class ReportKarton(Karton):
         # Transform findings for report schema
         report_findings = []
         for f in findings:
-            report_findings.append({
+            finding_dict = {
                 "rank": f.get("rank", 0),
                 "function": f.get("function", ""),
                 "score": f.get("final_score", 0.0),
@@ -189,7 +189,11 @@ class ReportKarton(Karton):
                 "sinks": f.get("sinks", []),
                 "added_checks": f.get("indicators", []),
                 "why": f.get("why_matters", ""),
-            })
+            }
+            change_type = f.get("change_type")
+            if change_type:
+                finding_dict["change_type"] = change_type
+            report_findings.append(finding_dict)
 
         # Transform skipped
         report_skipped = []

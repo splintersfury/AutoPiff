@@ -35,6 +35,10 @@ def render_executive_summary(findings, reachable_count):
             "No findings to report.\n"
         )
 
+    # Count patches vs new attack surface
+    patch_count = sum(1 for f in findings if f.get("change_type", "patch") == "patch")
+    new_feature_count = total - patch_count
+
     # Find top category
     categories = [f.get("category", "") for f in findings]
     top_cat = max(set(categories), key=categories.count) if categories else "unknown"
@@ -49,13 +53,17 @@ def render_executive_summary(findings, reachable_count):
         "",
         f"AutoPiff identified {total} security-relevant logic changes.",
         f"Of these, {reachable_count} are externally reachable.",
+    ]
+    if new_feature_count > 0:
+        lines.append(f"Breakdown: {patch_count} patches, {new_feature_count} new attack surface findings.")
+    lines.extend([
         "",
         "Top risk category:",
         f"- {_humanize_category(top_cat)}",
         "",
         "Recommended starting point:",
         f"- {best_name} (Score: {best_score:.2f})",
-    ]
+    ])
     return "\n".join(lines) + "\n"
 
 
@@ -77,8 +85,11 @@ def render_finding(finding, rank=None):
     indicators = finding.get("indicators", finding.get("added_checks", []))
     diff_hint = finding.get("diff_snippet", "")
 
+    change_type = finding.get("change_type", "patch")
+    tag = "[NEW]" if change_type == "new_feature" else "[PATCH]"
+
     lines = [
-        f"### [Rank #{r}] {func}",
+        f"### {tag} [Rank #{r}] {func}",
         f"Score: {score:.2f} | Confidence: {conf:.2f}",
         "",
         "**Why this matters**",
@@ -191,5 +202,6 @@ def _humanize_category(category):
         "pnp_power": "PnP/Power management fix",
         "dma_mmio": "DMA/MMIO bounds validation",
         "wdf_hardening": "WDF framework safety improvement",
+        "new_attack_surface": "New attack surface detected",
     }
     return mapping.get(category, category.replace("_", " ").capitalize())

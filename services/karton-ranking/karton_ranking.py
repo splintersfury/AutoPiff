@@ -203,6 +203,7 @@ class RankingKarton(Karton):
 
         rule_base = weights.get("semantic_rule_base", {})
         cat_mult = weights.get("category_multiplier", {})
+        change_type_mult = weights.get("change_type_multiplier", {})
         reach_bonus_map = weights.get("reachability_bonus", {})
         sink_bonus_map = weights.get("sink_bonus", {})
         penalty_cfg = weights.get("penalties", {})
@@ -334,8 +335,12 @@ class RankingKarton(Karton):
                 penalty_total += quality_pen
                 penalty_breakdown.append({"type": "matching_quality", "value": quality_pen})
 
+            # Apply change_type multiplier
+            change_type = primary.get("change_type", "patch")
+            ct_mult = change_type_mult.get(change_type, 1.0)
+
             # Compose final score
-            raw = semantic_total + reach_total + sink_total - penalty_total
+            raw = (semantic_total + reach_total + sink_total - penalty_total) * ct_mult
             clamped = max(clamp_min, min(clamp_max, raw))
 
             # Gating caps
@@ -362,6 +367,7 @@ class RankingKarton(Karton):
                 "final_score": round(clamped, 2),
                 "rule_ids": all_rule_ids,
                 "category": best_category,
+                "change_type": change_type,
                 "semantic_confidence": round(semantic_confidence, 2),
                 "matching_confidence": round(matching_confidence, 2),
                 "reachability_class": reach_class,

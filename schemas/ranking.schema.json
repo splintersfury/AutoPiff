@@ -122,6 +122,11 @@
                     "diff_snippet": {
                         "type": "string"
                     },
+                    "change_type": {
+                        "type": "string",
+                        "enum": ["patch", "new_feature"],
+                        "description": "Whether this finding comes from a changed function (patch) or a newly added function (new_feature)"
+                    },
                     "penalties_applied": {
                         "type": "array",
                         "items": {

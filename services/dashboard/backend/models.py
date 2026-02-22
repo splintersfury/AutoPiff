@@ -37,6 +37,11 @@ class MatchingQuality(str, Enum):
     low = "low"
 
 
+class ChangeType(str, Enum):
+    patch = "patch"
+    new_feature = "new_feature"
+
+
 class RuleCategory(str, Enum):
     bounds_check = "bounds_check"
     lifetime_fix = "lifetime_fix"
@@ -46,7 +51,20 @@ class RuleCategory(str, Enum):
     authorization = "authorization"
     race_condition = "race_condition"
     info_disclosure = "info_disclosure"
+    ioctl_hardening = "ioctl_hardening"
+    mdl_handling = "mdl_handling"
+    object_management = "object_management"
+    string_handling = "string_handling"
+    pool_hardening = "pool_hardening"
+    crypto_hardening = "crypto_hardening"
+    error_path_hardening = "error_path_hardening"
+    dos_hardening = "dos_hardening"
+    ndis_hardening = "ndis_hardening"
     filesystem_filter = "filesystem_filter"
+    pnp_power = "pnp_power"
+    dma_mmio = "dma_mmio"
+    wdf_hardening = "wdf_hardening"
+    new_attack_surface = "new_attack_surface"
 
 
 class ReachabilityClass(str, Enum):
@@ -116,6 +134,7 @@ class Finding(BaseModel):
     rule_id: str
     category: RuleCategory
     confidence: float = Field(ge=0.0, le=1.0)
+    change_type: ChangeType = ChangeType.patch
     sinks: list[str] = []
     indicators: list[str] = []
     diff_snippet: str = ""

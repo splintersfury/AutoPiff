@@ -502,6 +502,84 @@ class SemanticRuleEngine:
             diff_snippet=diff_snippet
         )
 
+    def evaluate_new_function(self, func_name: str, new_code: str) -> List[RuleHit]:
+        """
+        Evaluate attack surface rules against a newly added function.
+
+        Unlike evaluate(), there is no old code or diff — the entire function
+        is new.  We synthesize diff_lines by prefixing every line with '+',
+        then check for sinks WITHOUT adequate mitigating guards.
+
+        Returns list of RuleHit for each matching attack_surface rule.
+        """
+        if not new_code or not new_code.strip():
+            return []
+
+        # Synthesize diff lines: entire function is "added"
+        code_lines = new_code.splitlines()
+        diff_lines = [f"+{line}" for line in code_lines]
+
+        # Reuse existing helpers
+        sinks = self._find_sinks(diff_lines)
+        if not sinks:
+            return []
+
+        added_lines = code_lines  # all lines are "added"
+        guards = self._detect_guard_type(added_lines)
+
+        # Build set of sink groups present
+        sink_groups_present: Set[str] = {s.group for s in sinks}
+
+        hits = []
+        for rule in self.rules:
+            if rule.get('rule_type') != 'attack_surface':
+                continue
+
+            required_sink_groups = rule.get('sink_groups', [])
+            mitigating_guards = rule.get('mitigating_guards', [])
+
+            # Check if at least one required sink group is present
+            matched_groups = [g for g in required_sink_groups if g in sink_groups_present]
+            if not matched_groups:
+                continue
+
+            # Count how many mitigating guards are present
+            guards_present = [g for g in mitigating_guards if g in guards]
+
+            # If two or more mitigating guards are present, the code is
+            # adequately protected — don't flag it
+            if len(guards_present) >= 2:
+                continue
+
+            # Fewer guards → higher confidence (base confidence adjusted)
+            base_conf = rule.get('confidence', 0.70)
+            if len(guards_present) == 1:
+                # One guard present — reduce confidence
+                confidence = max(0.45, base_conf - 0.10)
+            else:
+                # No guards at all — full confidence
+                confidence = base_conf
+
+            # Collect matched sink symbols for indicators
+            matched_sinks = [s for s in sinks if s.group in matched_groups]
+            indicators = list(set(s.symbol for s in matched_sinks))[:10]
+
+            diff_snippet = '\n'.join(diff_lines[:30])
+            if len(diff_lines) > 30:
+                diff_snippet += '\n... (truncated)'
+
+            hits.append(RuleHit(
+                rule_id=rule['rule_id'],
+                category=rule['category'],
+                confidence=confidence,
+                sinks=matched_groups,
+                indicators=indicators,
+                why_matters=rule.get('plain_english_summary', ''),
+                diff_snippet=diff_snippet,
+            ))
+
+        return hits
+
     def get_rule_by_id(self, rule_id: str) -> Optional[Dict]:
         """Get rule definition by ID."""
         for rule in self.rules:

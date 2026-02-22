@@ -732,6 +732,7 @@ class PatchDifferKarton(Karton):
 
         rule_base = weights.get('semantic_rule_base', {})
         cat_mult = weights.get('category_multiplier', {})
+        change_type_mult = weights.get('change_type_multiplier', {})
         reach_bonus_map = weights.get('reachability_bonus', {})
         sink_bonus_map = weights.get('sink_bonus', {})
         penalty_cfg = weights.get('penalties', {})
@@ -796,8 +797,12 @@ class PatchDifferKarton(Karton):
             quality_pen = penalty_cfg.get('matching_quality', {}).get(quality, 0.0)
             penalty_total += quality_pen
 
+            # Apply change_type multiplier
+            ct = delta.get('change_type', 'patch')
+            ct_mult = change_type_mult.get(ct, 1.0)
+
             # Compose
-            raw = semantic_total + reach_total + sink_total - penalty_total
+            raw = (semantic_total + reach_total + sink_total - penalty_total) * ct_mult
             clamped = max(clamp_min, min(clamp_max, raw))
 
             # Gating caps
@@ -897,7 +902,7 @@ class PatchDifferKarton(Karton):
         by_category = {}
         by_rule = {}
 
-        # Process changed functions
+        # Process changed functions (patches)
         for func_name in diff.changed_funcs:
             diff_lines = diff.diffs.get(func_name, [])
             old_code = diff.old_funcs.get(func_name, "")
@@ -915,7 +920,8 @@ class PatchDifferKarton(Karton):
                         "indicators": hit.indicators,
                         "diff_snippet": hit.diff_snippet,
                         "why_matters": hit.why_matters,
-                        "surface_area": self._classify_surface(new_code)
+                        "surface_area": self._classify_surface(new_code),
+                        "change_type": "patch",
                     }
                     deltas.append(delta)
 
@@ -934,12 +940,40 @@ class PatchDifferKarton(Karton):
                         "indicators": [p["indicator"]],
                         "diff_snippet": '\n'.join(diff_lines[:20]),
                         "why_matters": p["indicator"],
-                        "surface_area": self._classify_surface(new_code)
+                        "surface_area": self._classify_surface(new_code),
+                        "change_type": "patch",
                     }
                     deltas.append(delta)
 
                     by_category[p["type"]] = by_category.get(p["type"], 0) + 1
                     by_rule[p["rule_id"]] = by_rule.get(p["rule_id"], 0) + 1
+
+        # Process added functions (new attack surface)
+        if self.rule_engine:
+            for func_name in diff.added_funcs:
+                new_code = diff.new_funcs.get(func_name, "")
+                # Skip trivially small functions
+                if len(new_code) < 50:
+                    continue
+
+                hits = self.rule_engine.evaluate_new_function(func_name, new_code)
+                for hit in hits:
+                    delta = {
+                        "function": func_name,
+                        "rule_id": hit.rule_id,
+                        "category": hit.category,
+                        "confidence": hit.confidence,
+                        "sinks": hit.sinks,
+                        "indicators": hit.indicators,
+                        "diff_snippet": hit.diff_snippet,
+                        "why_matters": hit.why_matters,
+                        "surface_area": self._classify_surface(new_code),
+                        "change_type": "new_feature",
+                    }
+                    deltas.append(delta)
+
+                    by_category[hit.category] = by_category.get(hit.category, 0) + 1
+                    by_rule[hit.rule_id] = by_rule.get(hit.rule_id, 0) + 1
 
         # Calculate match rate for scoring
         match_rate = (len(diff.matched_funcs) / max(len(diff.new_funcs), 1)) * 100
@@ -984,6 +1018,7 @@ class PatchDifferKarton(Karton):
             },
             "notes": [
                 f"Analyzed {len(diff.changed_funcs)} changed functions",
+                f"Analyzed {len(diff.added_funcs)} added functions",
                 f"Found {len(final_deltas)} semantic deltas",
                 f"Match rate: {match_rate:.1f}%"
             ]
