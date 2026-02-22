@@ -4,20 +4,29 @@
 
 system_drivers:
   # Windows kernel-mode drivers commonly targeted in privilege escalation
+  - ntoskrnl.exe     # NT Kernel & System (WinBIndex filename)
   - cldflt.sys       # Cloud Files Mini Filter Driver
+  - clfs.sys         # Common Log File System Driver
   - ntfs.sys         # NTFS File System Driver
+  - fastfat.sys      # FAT File System Driver
   - ndis.sys         # NDIS System Driver
   - afd.sys          # Ancillary Function Driver for WinSock
   - tcpip.sys        # TCP/IP Protocol Driver
   - win32k.sys       # Win32 Kernel Subsystem
   - win32kfull.sys   # Win32 Full Kernel Driver
   - win32kbase.sys   # Win32 Base Kernel Driver
-  - ntos.sys         # NT OS Kernel (ntoskrnl variants)
   - http.sys         # HTTP Protocol Stack
   - srv2.sys         # SMBv2 Server Driver
   - mrxsmb.sys       # SMB Redirector
   - cng.sys          # Cryptographic Next Generation
   - ksecdd.sys       # Kernel Security Device Driver
+  # Kernel Streaming stack — frequent EoP targets
+  - ks.sys           # Kernel Streaming core
+  - mskssrv.sys      # Kernel Streaming Server
+  - ksthunk.sys      # Kernel Streaming WOW64 Thunk
+  # Other high-value targets from CVE corpus
+  - appid.sys        # AppLocker / AppID Policy Driver
+  - csc.sys          # Client-Side Caching Driver
 
 # VirusTotal search queries for 3rd-party driver families.
 # Requires VT_API_KEY. Each entry becomes a VT Intelligence search.
@@ -32,3 +41,18 @@ vt_queries:
     query: "type:peexe tag:signed tag:contains-drv signature:\"Sophos\" ls:7d+"
   - name: ESET
     query: "type:peexe tag:signed tag:contains-drv signature:\"ESET\" ls:7d+"
+
+# Broad daily sweep — catches ALL new signed kernel drivers on VirusTotal.
+# Runs once per day (separate from vendor-specific 4h poll above).
+# Each query uses ls:1d+ so only new submissions from the last 24h are returned.
+# Results are uploaded to MWDB and enter the Karton analysis pipeline.
+vt_daily_sweep:
+  enabled: true
+  limit_per_query: 50            # Max drivers to download per query per run
+  queries:
+    # Any signed .sys file first seen in 2026
+    - name: new-signed-drivers-2026
+      query: "name:*.sys tag:signed ls:1d+ fs:2026-01-01+"
+    # Drivers flagged by VT as containing driver-level code, signed, recent
+    - name: new-tagged-drivers-2026
+      query: "tag:driver tag:signed ls:1d+ fs:2026-01-01+ NOT name:*.sys"

@@ -43,6 +43,10 @@ class RuleCategory(str, Enum):
     user_boundary_check = "user_boundary_check"
     int_overflow = "int_overflow"
     state_hardening = "state_hardening"
+    authorization = "authorization"
+    race_condition = "race_condition"
+    info_disclosure = "info_disclosure"
+    filesystem_filter = "filesystem_filter"
 
 
 class ReachabilityClass(str, Enum):
