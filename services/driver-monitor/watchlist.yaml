@@ -3,36 +3,141 @@
 # Additional families can be added dynamically via Telegram /watchdriver.
 
 system_drivers:
-  # Windows kernel-mode drivers commonly targeted in privilege escalation
-  - ntoskrnl.exe     # NT Kernel & System (WinBIndex filename)
-  - cldflt.sys       # Cloud Files Mini Filter Driver
-  - clfs.sys         # Common Log File System Driver
-  - ntfs.sys         # NTFS File System Driver
-  - fastfat.sys      # FAT File System Driver
-  - ndis.sys         # NDIS System Driver
-  - afd.sys          # Ancillary Function Driver for WinSock
-  - tcpip.sys        # TCP/IP Protocol Driver
+  # ── Core kernel ──
+  - ntoskrnl.exe     # NT Kernel & System
+  - fltmgr.sys       # Filter Manager (all minifilters depend on this)
+  - ahcache.sys      # Application Compatibility Cache
+
+  # ── Graphics / Win32 subsystem ──
   - win32k.sys       # Win32 Kernel Subsystem
   - win32kfull.sys   # Win32 Full Kernel Driver
   - win32kbase.sys   # Win32 Base Kernel Driver
+  - dxgkrnl.sys      # DirectX Graphics Kernel
+  - dxgmms1.sys      # DirectX Graphics Memory Management
+  - dxgmms2.sys      # DirectX Graphics MMS2
+  - monitor.sys      # Monitor Class Function Driver
+
+  # ── Network stack ──
+  - ndis.sys         # NDIS System Driver
+  - afd.sys          # Ancillary Function Driver for WinSock
+  - tcpip.sys        # TCP/IP Protocol Driver
+  - netio.sys        # Network I/O Subsystem
+  - nsiproxy.sys     # Network Store Interface Proxy
+  - tdx.sys          # TDI Translation Layer
   - http.sys         # HTTP Protocol Stack
+  - nwifi.sys        # Native WiFi Filter Driver
+  - pacer.sys        # QoS Packet Scheduler
+  - ndisuio.sys      # NDIS Usermode I/O
+  - ipfltdrv.sys     # IP Filter Driver
+
+  # ── SMB / file sharing ──
   - srv2.sys         # SMBv2 Server Driver
+  - srvnet.sys       # Server Network Transport
   - mrxsmb.sys       # SMB Redirector
+  - mrxsmb10.sys     # SMBv1 Redirector
+  - mrxsmb20.sys     # SMBv2 Redirector
+  - rdbss.sys        # Redirected Drive Buffering Subsystem
+  - mrxdav.sys       # WebDAV Redirector
+  - dfsc.sys         # DFS Client
+  - mup.sys          # Multiple UNC Provider
+
+  # ── Firewall / WFP ──
+  - wfplwfs.sys      # WFP Lightweight Filter
+  - fwpkclnt.sys     # WFP Kernel Client
+  - mpsdrv.sys       # Windows Firewall Driver
+
+  # ── File systems ──
+  - ntfs.sys         # NTFS File System Driver
+  - refs.sys         # Resilient File System
+  - fastfat.sys      # FAT File System Driver
+  - exfat.sys        # exFAT File System
+  - udfs.sys         # UDF File System
+  - cdfs.sys         # CD-ROM File System
+  - npfs.sys         # Named Pipe File System
+  - msfs.sys         # Mailslot File System
+
+  # ── FS filter drivers ──
+  - cldflt.sys       # Cloud Files Mini Filter Driver
+  - fileinfo.sys     # File Information FS Filter
+  - luafv.sys        # LUA File Virtualization Filter
+  - bindflt.sys      # Windows Bind Filter
+  - wcifs.sys        # Windows Container Isolation FS
+  - wof.sys          # Windows Overlay Filter
+  - csc.sys          # Client-Side Caching Driver
+
+  # ── Crypto / Security ──
   - cng.sys          # Cryptographic Next Generation
   - ksecdd.sys       # Kernel Security Device Driver
-  # Kernel Streaming stack — frequent EoP targets
+  - ksecpkg.sys      # Kernel Security Package Interface
+  - clfs.sys         # Common Log File System Driver
+  - fvevol.sys       # BitLocker Volume Encryption
+  - tbs.sys          # TPM Base Services
+  - appid.sys        # AppLocker / AppID Policy Driver
+  - wdfilter.sys     # Windows Defender Minifilter
+  - wdboot.sys       # Windows Defender Boot Driver
+
+  # ── Kernel Streaming (frequent EoP targets) ──
   - ks.sys           # Kernel Streaming core
   - mskssrv.sys      # Kernel Streaming Server
   - ksthunk.sys      # Kernel Streaming WOW64 Thunk
-  # Other high-value targets from CVE corpus
-  - appid.sys        # AppLocker / AppID Policy Driver
-  - csc.sys          # Client-Side Caching Driver
+  - portcls.sys      # Port Class Audio Driver
+  - drmk.sys         # DRM Kernel
+  - mspclock.sys     # KS Clock Proxy
+  - mspqm.sys        # KS Quality Manager
+
+  # ── USB / HID (physical attack surface) ──
+  - hidparse.sys     # HID Parser
+  - hidclass.sys     # HID Class Driver
+  - hidusb.sys       # HID USB Minidriver
+  - usbhub.sys       # USB Hub Driver
+  - usbhub3.sys      # USB 3.0 Hub Driver
+  - usbccgp.sys      # USB Common Class Generic Parent
+  - usbport.sys      # USB Port Driver
+  - usbd.sys         # USB Driver
+  - ucx01000.sys     # USB Host Controller Extension
+
+  # ── Bluetooth ──
+  - bthport.sys      # Bluetooth Port Driver
+  - bthusb.sys       # Bluetooth USB Transport
+  - bthenum.sys      # Bluetooth Enumerator
+  - rfcomm.sys       # Bluetooth RFCOMM
+
+  # ── Hyper-V / Virtualization ──
+  - vmswitch.sys     # Hyper-V Virtual Switch
+  - winhv.sys        # Windows Hypervisor Interface
+  - vid.sys          # Hyper-V VID Driver
+  - vmbus.sys        # VM Bus Driver
+  - storvsc.sys      # Hyper-V Storage VSC
+  - netvsc.sys       # Hyper-V Network VSC
+  - hvsocket.sys     # Hyper-V Socket
+  - vhdmp.sys        # VHD Miniport
+  - vhdparser.sys    # VHD Parser
+
+  # ── Storage ──
+  - disk.sys         # Disk Class Driver
+  - partmgr.sys      # Partition Manager
+  - classpnp.sys     # SCSI Class System
+  - storport.sys     # Storage Port Driver
+  - volsnap.sys      # Volume Shadow Copy
+  - volmgr.sys       # Volume Manager Driver
+  - volmgrx.sys      # Dynamic Volume Manager
+  - mountmgr.sys     # Mount Point Manager
+
+  # ── RDP / Terminal Services ──
+  - rdpdr.sys        # RDP Device Redirector
+  - rdpbus.sys       # RDP Bus Device
+
+  # ── Power / System ──
+  - intelppm.sys     # Intel Processor Power Management
+  - amdppm.sys       # AMD Processor Power Management
+  - pcw.sys          # Performance Counters for Windows
 
 # VirusTotal search queries for 3rd-party driver families.
 # Requires VT_API_KEY. Each entry becomes a VT Intelligence search.
 # Valid tags: "signed" (code-signed), "contains-drv" (driver).
 # Signer filter: "signature:" (matches sigcheck/codesign fields).
 vt_queries:
+  # EDR / Endpoint Security
   - name: CrowdStrike
     query: "type:peexe tag:signed tag:contains-drv signature:\"CrowdStrike\" ls:7d+"
   - name: SentinelOne
@@ -41,6 +146,27 @@ vt_queries:
     query: "type:peexe tag:signed tag:contains-drv signature:\"Sophos\" ls:7d+"
   - name: ESET
     query: "type:peexe tag:signed tag:contains-drv signature:\"ESET\" ls:7d+"
+  - name: Kaspersky
+    query: "type:peexe tag:signed tag:contains-drv signature:\"Kaspersky\" ls:7d+"
+  - name: Bitdefender
+    query: "type:peexe tag:signed tag:contains-drv signature:\"Bitdefender\" ls:7d+"
+  - name: TrendMicro
+    query: "type:peexe tag:signed tag:contains-drv signature:\"Trend Micro\" ls:7d+"
+  - name: Avast
+    query: "type:peexe tag:signed tag:contains-drv signature:\"Avast\" ls:7d+"
+  - name: MalwareBytes
+    query: "type:peexe tag:signed tag:contains-drv signature:\"Malwarebytes\" ls:7d+"
+  - name: PaloAlto
+    query: "type:peexe tag:signed tag:contains-drv signature:\"Palo Alto\" ls:7d+"
+  - name: Fortinet
+    query: "type:peexe tag:signed tag:contains-drv signature:\"Fortinet\" ls:7d+"
+  - name: McAfee
+    query: "type:peexe tag:signed tag:contains-drv signature:\"McAfee\" ls:7d+"
+  # Virtualization / Infrastructure
+  - name: VMware
+    query: "type:peexe tag:signed tag:contains-drv signature:\"VMware\" ls:7d+"
+  - name: Citrix
+    query: "type:peexe tag:signed tag:contains-drv signature:\"Citrix\" ls:7d+"
 
 # Broad daily sweep — catches ALL new signed kernel drivers on VirusTotal.
 # Runs once per day (separate from vendor-specific 4h poll above).
