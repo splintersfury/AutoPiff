@@ -239,6 +239,38 @@ services:
         limits:
           memory: 1G
 
+  # DriverAtlas Triage: scores every driver's attack surface
+  autopiff-driver-triage:
+    build:
+      context: .
+      dockerfile: services/karton-driver-triage/Dockerfile
+      additional_contexts:
+        driveratlas-src: ../DriverAtlas
+    restart: unless-stopped
+    depends_on:
+      karton-system:
+        condition: service_started
+      mwdb-core:
+        condition: service_healthy
+    environment:
+      KARTON_REDIS_HOST: karton-redis
+      KARTON_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      KARTON_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      KARTON_S3_ADDRESS: minio:9000
+      KARTON_S3_BUCKET: karton
+      KARTON_S3_SECURE: "false"
+      MWDB_API_URL: http://mwdb-core:8080/api/
+      MWDB_API_KEY: ${MWDB_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      DRIVERATLAS_SCORE_THRESHOLD: "8.0"
+    volumes:
+      - ./karton.ini:/etc/karton/karton.ini:ro
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
   # ==========================================================================
   # AutoPiff Dashboard
   # ==========================================================================
