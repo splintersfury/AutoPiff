@@ -16,6 +16,12 @@ system_drivers:
   - dxgmms1.sys      # DirectX Graphics Memory Management
   - dxgmms2.sys      # DirectX Graphics MMS2
   - monitor.sys      # Monitor Class Function Driver
+  - basicdisplay.sys # Basic Display Driver
+  - basicrender.sys  # Basic Render Driver
+  - videoprt.sys     # Video Port
+  - usbvideo.sys     # USB Video Class
+  - rdpvideominiport.sys # RDP Video Miniport
+  - displaymux.sys   # Display Mux
 
   # ── Network stack ──
   - ndis.sys         # NDIS System Driver
@@ -29,6 +35,27 @@ system_drivers:
   - pacer.sys        # QoS Packet Scheduler
   - ndisuio.sys      # NDIS Usermode I/O
   - ipfltdrv.sys     # IP Filter Driver
+  - netadaptercx.sys # Network Adapter Class Extension
+  - ndiscap.sys      # NDIS Capture
+  - ndiswan.sys      # NDIS WAN
+  - ndistapi.sys     # NDIS TAPI
+  - ndisvirtualbus.sys # NDIS Virtual Bus
+  - ndisimplatform.sys # NDIS IM Platform
+  - netbt.sys        # NetBIOS over TCP/IP
+  - tunnel.sys       # IP Tunnel
+  - afunix.sys       # AF_UNIX Socket
+
+  # ── VPN / RAS ──
+  - raspppoe.sys     # RAS PPPoE
+  - rasl2tp.sys      # RAS L2TP
+  - raspptp.sys      # RAS PPTP
+  - rassstp.sys      # RAS SSTP
+  - agilevpn.sys     # Agile VPN
+
+  # ── WiFi ──
+  - vwifibus.sys     # Virtual WiFi Bus
+  - vwififlt.sys     # Virtual WiFi Filter
+  - wdiwifi.sys      # WDI WiFi
 
   # ── SMB / file sharing ──
   - srv2.sys         # SMBv2 Server Driver
@@ -55,6 +82,7 @@ system_drivers:
   - cdfs.sys         # CD-ROM File System
   - npfs.sys         # Named Pipe File System
   - msfs.sys         # Mailslot File System
+  - cimfs.sys        # Composite Image FS
 
   # ── FS filter drivers ──
   - cldflt.sys       # Cloud Files Mini Filter Driver
@@ -64,6 +92,12 @@ system_drivers:
   - wcifs.sys        # Windows Container Isolation FS
   - wof.sys          # Windows Overlay Filter
   - csc.sys          # Client-Side Caching Driver
+  - csvflt.sys       # Cluster CSV Filter
+  - csvnsflt.sys     # Cluster CSV NS Filter
+  - msnfsflt.sys     # MS NFS Filter
+  - applockerfltr.sys # AppLocker Filter
+  - iorate.sys       # IO Rate Filter
+  - ioqos.sys        # IO QoS Filter
 
   # ── Crypto / Security ──
   - cng.sys          # Cryptographic Next Generation
@@ -75,8 +109,11 @@ system_drivers:
   - appid.sys        # AppLocker / AppID Policy Driver
   - wdfilter.sys     # Windows Defender Minifilter
   - wdboot.sys       # Windows Defender Boot Driver
+  - mssecflt.sys     # MS Security Filter
+  - msseccore.sys    # MS Security Core
+  - mssecwfp.sys     # MS Security WFP
 
-  # ── Kernel Streaming (frequent EoP targets) ──
+  # ── Kernel Streaming / Audio ──
   - ks.sys           # Kernel Streaming core
   - mskssrv.sys      # Kernel Streaming Server
   - ksthunk.sys      # Kernel Streaming WOW64 Thunk
@@ -84,32 +121,55 @@ system_drivers:
   - drmk.sys         # DRM Kernel
   - mspclock.sys     # KS Clock Proxy
   - mspqm.sys        # KS Quality Manager
+  - hdaudio.sys      # HD Audio Bus Driver
+  - hdaudbus.sys     # HD Audio Bus Enumerator
+  - usbaudio.sys     # USB Audio
+  - usbaudio2.sys    # USB Audio 2.0
 
   # ── USB / HID (physical attack surface) ──
   - hidparse.sys     # HID Parser
   - hidclass.sys     # HID Class Driver
   - hidusb.sys       # HID USB Minidriver
+  - hidi2c.sys       # HID over I2C
+  - hidspi.sys       # HID over SPI
   - usbhub.sys       # USB Hub Driver
   - usbhub3.sys      # USB 3.0 Hub Driver
   - usbccgp.sys      # USB Common Class Generic Parent
   - usbport.sys      # USB Port Driver
   - usbd.sys         # USB Driver
   - ucx01000.sys     # USB Host Controller Extension
+  - usbstor.sys      # USB Mass Storage
+  - usbprint.sys     # USB Print
+  - kbdclass.sys     # Keyboard Class Driver
+  - mouclass.sys     # Mouse Class Driver
+  - kbdhid.sys       # HID Keyboard
+  - mouhid.sys       # HID Mouse
 
   # ── Bluetooth ──
   - bthport.sys      # Bluetooth Port Driver
   - bthusb.sys       # Bluetooth USB Transport
   - bthenum.sys      # Bluetooth Enumerator
   - rfcomm.sys       # Bluetooth RFCOMM
+  - bthmodem.sys     # Bluetooth Modem
+  - bthhfenum.sys    # Bluetooth HF Enumerator
+  - bthmini.sys      # Bluetooth Miniport
+  - bthpan.sys       # Bluetooth PAN
+  - btha2dp.sys      # Bluetooth A2DP
 
   # ── Hyper-V / Virtualization ──
   - vmswitch.sys     # Hyper-V Virtual Switch
   - winhv.sys        # Windows Hypervisor Interface
+  - winhvr.sys       # Windows Hypervisor Root
   - vid.sys          # Hyper-V VID Driver
   - vmbus.sys        # VM Bus Driver
+  - vmbusr.sys       # VM Bus Root
+  - vmbusproxy.sys   # VM Bus Proxy
+  - vmbushid.sys     # VM Bus HID
   - storvsc.sys      # Hyper-V Storage VSC
   - netvsc.sys       # Hyper-V Network VSC
   - hvsocket.sys     # Hyper-V Socket
+  - hvservice.sys    # Hyper-V Service
+  - hvsifltr.sys     # Hyper-V Isolated Filter
   - vhdmp.sys        # VHD Miniport
   - vhdparser.sys    # VHD Parser
 
@@ -118,19 +178,54 @@ system_drivers:
   - partmgr.sys      # Partition Manager
   - classpnp.sys     # SCSI Class System
   - storport.sys     # Storage Port Driver
+  - storahci.sys     # AHCI Storage Port
+  - stornvme.sys     # NVMe StorPort Miniport
+  - spaceport.sys    # Storage Spaces
   - volsnap.sys      # Volume Shadow Copy
   - volmgr.sys       # Volume Manager Driver
   - volmgrx.sys      # Dynamic Volume Manager
   - mountmgr.sys     # Mount Point Manager
+  - mpio.sys         # Multipath I/O
+  - msdsm.sys        # Microsoft DSM for MPIO
+  - msiscsi.sys      # MS iSCSI Initiator
+  - sdbus.sys        # SD Bus Driver
+  - sdstor.sys       # SD Storage
 
   # ── RDP / Terminal Services ──
   - rdpdr.sys        # RDP Device Redirector
   - rdpbus.sys       # RDP Bus Device
 
-  # ── Power / System ──
+  # ── Bus / Transport ──
+  - pci.sys          # PCI Bus Driver
+  - compositebus.sys # Composite Bus Enumerator
+  - spbcx.sys        # SPB Controller Extension
+  - acpi.sys         # ACPI Driver
+  - acpiex.sys       # ACPI Extension
+
+  # ── WSL / Subsystem ──
+  - lxcore.sys       # WSL Core
+  - lxss.sys         # WSL Subsystem
+  - p9rdr.sys        # Plan 9 Redirector (WSL)
+
+  # ── Print ──
+  - wsdprint.sys     # WSD Print
+
+  # ── RPC / NFS ──
+  - rpcxdr.sys       # RPC XDR
+
+  # ── System / Misc ──
   - intelppm.sys     # Intel Processor Power Management
   - amdppm.sys       # AMD Processor Power Management
   - pcw.sys          # Performance Counters for Windows
+  - ntosext.sys      # NT OS Extension
+  - tm.sys           # Transaction Manager
+  - mmcss.sys        # Multimedia Class Scheduler
+  - bam.sys          # Background Activity Moderator
+  - dam.sys          # Desktop Activity Moderator
+  - crashdmp.sys     # Crash Dump
+  - dumpfve.sys      # Dump BitLocker FVE
+  - verifierext.sys  # Driver Verifier Extension
+  - wpprecorder.sys  # WPP Recorder
 
 # VirusTotal search queries for 3rd-party driver families.
 # Requires VT_API_KEY. Each entry becomes a VT Intelligence search.
