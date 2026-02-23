@@ -95,18 +95,21 @@ AutoPiff doesn't replace exploitation research. It makes it **feasible at scale*
 
 ## Architecture
 
-AutoPiff runs as an 8-stage Karton pipeline. Each stage is an independent microservice communicating through Redis/RabbitMQ.
+AutoPiff runs as a Karton pipeline with 8 sequential stages plus a parallel DriverAtlas triage branch. Each stage is an independent microservice communicating through Redis/RabbitMQ.
 
 ```mermaid
 graph LR
     sources["WinBIndex<br/>VirusTotal"]:::src --> s0["Stage 0<br/>Monitor"]
     s0 --> s14["Stages 1-4<br/>Patch Differ"]
+    s0 --> triage["DriverAtlas<br/>Triage"]:::triage
     s14 --> s5["Stage 5<br/>Reachability"]
     s5 --> s6["Stage 6<br/>Ranking"]
     s6 --> s7["Stage 7<br/>Report"]
     s6 --> s8["Stage 8<br/>Alerter"]
+    triage --> alerts["MWDB Tags<br/>+ Alerts"]:::triage
 
     classDef src fill:#1a1a2e,stroke:#e94560,color:#eee
+    classDef triage fill:#1a1a2e,stroke:#e9a345,color:#eee
     classDef default fill:#16213e,stroke:#0f3460,color:#eee
 ```
 
@@ -118,6 +121,7 @@ graph LR
 | 6 | [`karton-ranking`](services/karton-ranking/) | Scores findings using reachability, semantic severity, and attack surface |
 | 7 | [`karton-report`](services/karton-report/) | Generates structured markdown reports, uploads to MWDB |
 | 8 | [`autopiff-alerter`](services/autopiff-alerter/) | Sends Telegram alerts for findings scoring >= 8.0 |
+| — | [`autopiff-driver-triage`](services/karton-driver-triage/) | DriverAtlas attack surface scoring (parallel to 1-4), tags MWDB samples, Telegram alerts |
 
 ## Semantic Rules
 
@@ -202,6 +206,7 @@ hits = engine.evaluate(func_name, old_code, new_code, diff_lines)
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token for alerts | (optional) |
 | `TELEGRAM_CHAT_ID` | Telegram chat for alerts | (optional) |
 | `AUTOPIFF_SCORE_THRESHOLD` | Minimum score for Telegram alerts | `8.0` |
+| `DRIVERATLAS_SCORE_THRESHOLD` | Minimum attack surface score for triage alerts | `8.0` |
 
 ### Rule Customization
 
@@ -283,10 +288,11 @@ AutoPiff/
 │   ├── karton-reachability/       # Stage 5: call-graph + decompilation
 │   ├── karton-ranking/            # Stage 6: scoring
 │   ├── karton-report/             # Stage 7: report generation
+│   ├── karton-driver-triage/      # DriverAtlas attack surface triage
 │   ├── autopiff-alerter/          # Stage 8: Telegram alerts
 │   ├── driver-monitor/            # Stage 0: version polling
 │   └── dashboard/                 # Web UI
-├── tests/unit/                    # 127 unit tests
+├── tests/unit/                    # 137 unit tests
 ├── docker-compose.yml
 └── README.md
 ```
