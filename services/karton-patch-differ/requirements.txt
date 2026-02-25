@@ -7,7 +7,7 @@ karton-core>=5.0.0
 mwdblib>=4.0.0
 
 # PE file parsing
-pefile>=2023.2.7
+pefile>=2024.8.26
 
 # YAML parsing for rules
 PyYAML>=6.0

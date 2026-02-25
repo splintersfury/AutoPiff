@@ -1,6 +1,6 @@
 karton-core>=5.0.0
 mwdblib>=4.0.0
 requests>=2.28.0
-pefile>=2023.2.7
+pefile>=2024.8.26
 PyYAML>=6.0
 cryptography>=41.0
