@@ -279,6 +279,9 @@ class FileStorage:
             json.dump(artifacts, f, indent=2)
         return _parse_analysis_from_artifacts(analysis_id, artifacts)
 
+    # Files that live in the analyses dir but are not analysis artifacts
+    _SKIP_FILES = {"triage.json"}
+
     def _load(self, path: Path) -> Optional[Analysis]:
         if path.is_dir():
             combined = path / "combined.json"
@@ -287,7 +290,7 @@ class FileStorage:
             with open(combined) as f:
                 data = json.load(f)
             return _parse_analysis_from_artifacts(path.name, data)
-        elif path.is_file() and path.suffix == ".json":
+        elif path.is_file() and path.suffix == ".json" and path.name not in self._SKIP_FILES:
             with open(path) as f:
                 data = json.load(f)
             return _parse_analysis_from_artifacts(path.stem, data)

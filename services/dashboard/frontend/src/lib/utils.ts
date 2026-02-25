@@ -71,3 +71,57 @@ export function formatDate(iso: string): string {
 export function truncateSha(sha: string, len = 12): string {
   return sha.slice(0, len);
 }
+
+export function triageLabel(state: string): string {
+  const labels: Record<string, string> = {
+    untriaged: "Untriaged",
+    investigating: "Investigating",
+    confirmed: "Confirmed",
+    false_positive: "False Positive",
+    resolved: "Resolved",
+  };
+  return labels[state] || state;
+}
+
+export function triageBadge(state: string): string {
+  const colors: Record<string, string> = {
+    untriaged: "bg-gray-100 text-gray-600",
+    investigating: "bg-blue-100 text-blue-700",
+    confirmed: "bg-red-100 text-red-700",
+    false_positive: "bg-yellow-100 text-yellow-700",
+    resolved: "bg-green-100 text-green-700",
+  };
+  return colors[state] || "bg-gray-100 text-gray-500";
+}
+
+export function activityIcon(type: string): string {
+  const icons: Record<string, string> = {
+    new_analysis: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
+    high_score_finding: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+    triage_update: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
+  };
+  return icons[type] || "";
+}
+
+export function activityColor(type: string): string {
+  const colors: Record<string, string> = {
+    new_analysis: "text-blue-500",
+    high_score_finding: "text-red-500",
+    triage_update: "text-green-500",
+  };
+  return colors[type] || "text-gray-500";
+}
+
+export function timeAgo(iso: string): string {
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  const diff = now - then;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return formatDate(iso);
+}

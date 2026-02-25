@@ -1,10 +1,14 @@
 import type {
+  ActivityItem,
   Analysis,
   AnalysisListResponse,
   CorpusOverview,
   CorpusSource,
   CVECorpusEntry,
   Finding,
+  TriageEntry,
+  TriageSummary,
+  TriageState,
 } from "@/types";
 
 // Server-side (SSR) fetch needs a full URL; client-side uses relative paths
@@ -71,4 +75,42 @@ export async function triggerCorpusEvaluate(): Promise<{ status: string }> {
 
 export async function getCorpusSource(cveId: string): Promise<CorpusSource> {
   return fetchJson(`/api/corpus/${cveId}/source`);
+}
+
+// --- Activity Feed ---
+
+export async function getActivity(limit = 30): Promise<ActivityItem[]> {
+  return fetchJson(`/api/activity?limit=${limit}`);
+}
+
+// --- Triage ---
+
+export async function getTriageSummary(): Promise<TriageSummary> {
+  return fetchJson("/api/triage/summary");
+}
+
+export async function getTriageStates(
+  analysisId: string
+): Promise<Record<string, TriageEntry>> {
+  return fetchJson(`/api/triage/${analysisId}`);
+}
+
+export async function setTriageState(
+  analysisId: string,
+  func: string,
+  state: TriageState,
+  note = ""
+): Promise<TriageEntry> {
+  const res = await fetch(
+    `${API_BASE}/api/triage/${analysisId}/${encodeURIComponent(func)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state, note }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
 }

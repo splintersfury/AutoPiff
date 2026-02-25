@@ -1,14 +1,17 @@
-import type { Finding } from "@/types";
+import type { Finding, TriageEntry } from "@/types";
 import { categoryLabel, cn, scoreColor } from "@/lib/utils";
 import { ScoreBreakdown } from "./score-breakdown";
 import { DiffViewer } from "./diff-viewer";
 import { ReachabilityPath } from "./reachability-path";
+import { TriageSelector } from "./triage-selector";
 
 interface FindingDetailProps {
   finding: Finding;
+  analysisId?: string;
+  triage?: TriageEntry | null;
 }
 
-export function FindingDetail({ finding }: FindingDetailProps) {
+export function FindingDetail({ finding, analysisId, triage }: FindingDetailProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -33,6 +36,16 @@ export function FindingDetail({ finding }: FindingDetailProps) {
           <p className="text-xs text-muted-foreground">/ 15.00</p>
         </div>
       </div>
+
+      {/* Triage */}
+      {analysisId && (
+        <TriageSelector
+          analysisId={analysisId}
+          functionName={finding.function}
+          currentState={triage?.state || "untriaged"}
+          currentNote={triage?.note || ""}
+        />
+      )}
 
       {/* Why it matters */}
       <div>

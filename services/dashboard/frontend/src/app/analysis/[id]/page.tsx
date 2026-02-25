@@ -2,28 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import type { Analysis, Finding } from "@/types";
+import type { Analysis, Finding, TriageEntry } from "@/types";
 import { OverviewCards, TrustIndicators } from "@/components/overview-cards";
 import { FindingsTable } from "@/components/findings-table";
 import { FindingDetail } from "@/components/finding-detail";
-import { formatDate, truncateSha, cn } from "@/lib/utils";
+import { formatDate, truncateSha, cn, triageBadge, triageLabel } from "@/lib/utils";
 
 export default function AnalysisPage() {
   const params = useParams();
   const id = params.id as string;
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+  const [triageStates, setTriageStates] = useState<Record<string, TriageEntry>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/analyses/${id}`)
-      .then((res) => {
+    Promise.all([
+      fetch(`/api/analyses/${id}`).then((res) => {
         if (!res.ok) throw new Error(`${res.status}`);
         return res.json();
-      })
-      .then((data: Analysis) => {
+      }),
+      fetch(`/api/triage/${id}`).then((res) => {
+        if (!res.ok) return {};
+        return res.json();
+      }),
+    ])
+      .then(([data, triage]: [Analysis, Record<string, TriageEntry>]) => {
         setAnalysis(data);
+        setTriageStates(triage || {});
         if (data.findings.length > 0) {
           setSelectedFinding(data.findings[0]);
         }
@@ -56,6 +63,12 @@ export default function AnalysisPage() {
     );
   }
 
+  // Triage stats for this analysis
+  const triageCount = Object.values(triageStates).filter(
+    (t) => t.state !== "untriaged"
+  ).length;
+  const untriagedCount = analysis.findings.length - triageCount;
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -70,6 +83,18 @@ export default function AnalysisPage() {
               <span>&middot;</span>
               <span>{formatDate(analysis.created_at)}</span>
             </div>
+          </div>
+          {/* Triage progress badge */}
+          <div className="text-right">
+            {untriagedCount > 0 ? (
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                {untriagedCount} untriaged
+              </span>
+            ) : (
+              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                All triaged
+              </span>
+            )}
           </div>
         </div>
 
@@ -141,14 +166,41 @@ export default function AnalysisPage() {
 
       {/* Findings */}
       <div>
-        <h2 className="text-lg font-semibold">
-          Ranked Findings ({analysis.findings.length})
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">
+            Ranked Findings ({analysis.findings.length})
+          </h2>
+          {/* Triage filter chips */}
+          <div className="flex gap-1">
+            {Object.entries(
+              Object.values(triageStates).reduce(
+                (acc, t) => {
+                  acc[t.state] = (acc[t.state] || 0) + 1;
+                  return acc;
+                },
+                {} as Record<string, number>
+              )
+            ).map(([state, count]) =>
+              state !== "untriaged" ? (
+                <span
+                  key={state}
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs font-medium",
+                    triageBadge(state)
+                  )}
+                >
+                  {triageLabel(state)}: {count}
+                </span>
+              ) : null
+            )}
+          </div>
+        </div>
         <div className="mt-4">
           <FindingsTable
             findings={analysis.findings}
             onSelect={setSelectedFinding}
             selectedFunction={selectedFinding?.function}
+            triageStates={triageStates}
           />
         </div>
       </div>
@@ -156,7 +208,11 @@ export default function AnalysisPage() {
       {/* Finding detail */}
       {selectedFinding && (
         <div className="rounded-xl border bg-card p-6">
-          <FindingDetail finding={selectedFinding} />
+          <FindingDetail
+            finding={selectedFinding}
+            analysisId={id}
+            triage={triageStates[selectedFinding.function] || null}
+          />
         </div>
       )}
 

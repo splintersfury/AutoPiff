@@ -320,6 +320,7 @@ services:
       AUTOPIFF_ANALYSES_DIR: /data/analyses
       AUTOPIFF_CORPUS_DIR: /data/corpus
       AUTOPIFF_MANIFEST_PATH: /data/corpus_manifest.json
+      AUTOPIFF_TRIAGE_PATH: /data/analyses/triage.json
       CORS_ORIGINS: "http://localhost:3000,http://autopiff-dashboard:3000"
     ports:
       - "8000:8000"

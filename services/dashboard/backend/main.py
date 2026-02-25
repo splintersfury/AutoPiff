@@ -14,14 +14,20 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .corpus import get_corpus_entry, get_corpus_overview
 from .models import (
+    ActivityItem,
+    ActivityType,
     Analysis,
     AnalysisListResponse,
     CorpusOverview,
     CVECorpusEntry,
     Finding,
     HealthResponse,
+    TriageEntry,
+    TriageSummary,
+    TriageUpdate,
 )
 from .storage import FileStorage, MWDBStorage
+from .triage import TriageStore
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger("autopiff.dashboard")
@@ -47,6 +53,10 @@ MWDB_API_KEY = os.environ.get("MWDB_API_KEY", "")
 
 file_storage = FileStorage(ANALYSES_DIR)
 mwdb_storage = MWDBStorage(MWDB_API_URL, MWDB_API_KEY) if MWDB_API_URL else None
+
+# Triage store
+TRIAGE_PATH = os.environ.get("AUTOPIFF_TRIAGE_PATH", "/data/triage.json")
+triage_store = TriageStore(TRIAGE_PATH)
 
 # Corpus validation
 CORPUS_DIR = Path(os.environ.get("AUTOPIFF_CORPUS_DIR", "/data/corpus"))
@@ -115,6 +125,88 @@ async def upload_analysis(file: UploadFile):
     analysis_id = str(uuid.uuid4())[:8]
     analysis = file_storage.save_analysis(analysis_id, artifacts)
     return analysis
+
+
+# ==========================================================================
+# Activity Feed
+# ==========================================================================
+
+
+@app.get("/api/activity", response_model=list[ActivityItem])
+async def activity_feed(limit: int = 30):
+    """Return a chronological activity feed of recent events."""
+    items: list[ActivityItem] = []
+
+    # 1. Recent analyses -> activity items
+    analyses = file_storage.list_analyses()
+    for a in analyses:
+        # New analysis event
+        items.append(ActivityItem(
+            type=ActivityType.new_analysis,
+            timestamp=a.created_at.isoformat() if hasattr(a.created_at, "isoformat") else str(a.created_at),
+            title=f"New analysis: {a.driver_name or a.id}",
+            detail=(
+                f"{a.total_findings} finding{'s' if a.total_findings != 1 else ''}"
+                f"{f', {a.reachable_findings} reachable' if a.reachable_findings else ''}"
+                f" — top score {a.top_score:.1f}"
+            ),
+            link=f"/analysis/{a.id}",
+            score=a.top_score,
+        ))
+
+        # High-score findings as separate events (score >= 8)
+        if a.top_score >= 8.0:
+            items.append(ActivityItem(
+                type=ActivityType.high_score_finding,
+                timestamp=a.created_at.isoformat() if hasattr(a.created_at, "isoformat") else str(a.created_at),
+                title=f"High-scoring finding in {a.driver_name or a.id}",
+                detail=f"Score {a.top_score:.1f} — {a.reachable_findings} reachable via IOCTL/IRP",
+                link=f"/analysis/{a.id}",
+                score=a.top_score,
+            ))
+
+    # 2. Recent triage updates
+    for entry in triage_store.recent_updates(limit=20):
+        items.append(ActivityItem(
+            type=ActivityType.triage_update,
+            timestamp=entry.updated_at.isoformat() if hasattr(entry.updated_at, "isoformat") else str(entry.updated_at),
+            title=f"Triaged: {entry.function} -> {entry.state.value}",
+            detail=entry.note or "",
+            link=f"/analysis/{entry.analysis_id}",
+        ))
+
+    # Sort by timestamp descending
+    items.sort(key=lambda x: x.timestamp, reverse=True)
+    return items[:limit]
+
+
+# ==========================================================================
+# Triage Workflow
+# ==========================================================================
+
+
+@app.get("/api/triage/summary", response_model=TriageSummary)
+async def triage_summary():
+    """Get aggregate triage state counts across all findings."""
+    return triage_store.summary()
+
+
+@app.get("/api/triage/{analysis_id}", response_model=dict[str, TriageEntry])
+async def get_triage_states(analysis_id: str):
+    """Get all triage states for an analysis."""
+    return triage_store.get_for_analysis(analysis_id)
+
+
+@app.get("/api/triage/{analysis_id}/{function}", response_model=TriageEntry)
+async def get_triage_state(analysis_id: str, function: str):
+    """Get triage state for a specific finding."""
+    return triage_store.get(analysis_id, function)
+
+
+@app.put("/api/triage/{analysis_id}/{function}", response_model=TriageEntry)
+async def set_triage_state(analysis_id: str, function: str, body: TriageUpdate):
+    """Update triage state for a specific finding."""
+    return triage_store.set(analysis_id, function, body.state, body.note)
 
 
 # ==========================================================================

@@ -218,3 +218,45 @@ export interface CorpusSource {
   vuln_source?: string | null;
   fix_source?: string | null;
 }
+
+// --- Triage Workflow ---
+
+export type TriageState =
+  | "untriaged"
+  | "investigating"
+  | "confirmed"
+  | "false_positive"
+  | "resolved";
+
+export interface TriageEntry {
+  analysis_id: string;
+  function: string;
+  state: TriageState;
+  updated_at: string;
+  note: string;
+}
+
+export interface TriageSummary {
+  untriaged: number;
+  investigating: number;
+  confirmed: number;
+  false_positive: number;
+  resolved: number;
+  total: number;
+}
+
+// --- Activity Feed ---
+
+export type ActivityType =
+  | "new_analysis"
+  | "high_score_finding"
+  | "triage_update";
+
+export interface ActivityItem {
+  type: ActivityType;
+  timestamp: string;
+  title: string;
+  detail: string;
+  link: string;
+  score?: number | null;
+}

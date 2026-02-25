@@ -10,7 +10,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import type { Finding } from "@/types";
+import type { Finding, TriageEntry } from "@/types";
 import {
   cn,
   scoreColor,
@@ -18,18 +18,22 @@ import {
   reachabilityLabel,
   reachabilityBadge,
   confidenceBadge,
+  triageBadge,
+  triageLabel,
 } from "@/lib/utils";
 
 interface FindingsTableProps {
   findings: Finding[];
   onSelect: (finding: Finding) => void;
   selectedFunction?: string;
+  triageStates?: Record<string, TriageEntry>;
 }
 
 export function FindingsTable({
   findings,
   onSelect,
   selectedFunction,
+  triageStates = {},
 }: FindingsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "final_score", desc: true },
@@ -123,8 +127,32 @@ export function FindingsTable({
           </span>
         ),
       },
+      {
+        id: "triage",
+        header: "Triage",
+        cell: ({ row }) => {
+          const state = triageStates[row.original.function]?.state || "untriaged";
+          if (state === "untriaged") {
+            return (
+              <span className="inline-block h-2 w-2 rounded-full bg-gray-300" title="Untriaged" />
+            );
+          }
+          return (
+            <span
+              className={cn(
+                "inline-block rounded-full px-2 py-0.5 text-xs font-medium",
+                triageBadge(state)
+              )}
+            >
+              {triageLabel(state)}
+            </span>
+          );
+        },
+        size: 100,
+        enableSorting: false,
+      },
     ],
-    []
+    [triageStates]
   );
 
   const filteredData = useMemo(() => {

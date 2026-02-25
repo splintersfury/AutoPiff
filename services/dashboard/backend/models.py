@@ -215,12 +215,67 @@ class AnalysisListItem(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str = "ok"
-    version: str = "0.1.0"
+    version: str = "0.2.0"
 
 
 class AnalysisListResponse(BaseModel):
     analyses: list[AnalysisListItem]
     total: int
+
+
+# --- Triage Workflow ---
+
+
+class TriageState(str, Enum):
+    untriaged = "untriaged"
+    investigating = "investigating"
+    confirmed = "confirmed"
+    false_positive = "false_positive"
+    resolved = "resolved"
+
+
+class TriageEntry(BaseModel):
+    """Triage state for a single finding (keyed by analysis_id + function)."""
+    analysis_id: str
+    function: str
+    state: TriageState = TriageState.untriaged
+    updated_at: datetime = Field(default_factory=lambda: datetime.now())
+    note: str = ""
+
+
+class TriageUpdate(BaseModel):
+    """Request body for updating triage state."""
+    state: TriageState
+    note: str = ""
+
+
+class TriageSummary(BaseModel):
+    """Aggregate triage counts."""
+    untriaged: int = 0
+    investigating: int = 0
+    confirmed: int = 0
+    false_positive: int = 0
+    resolved: int = 0
+    total: int = 0
+
+
+# --- Activity Feed ---
+
+
+class ActivityType(str, Enum):
+    new_analysis = "new_analysis"
+    high_score_finding = "high_score_finding"
+    triage_update = "triage_update"
+
+
+class ActivityItem(BaseModel):
+    """A single activity feed entry."""
+    type: ActivityType
+    timestamp: str
+    title: str
+    detail: str = ""
+    link: str = ""
+    score: Optional[float] = None
 
 
 # --- Corpus Validation ---
