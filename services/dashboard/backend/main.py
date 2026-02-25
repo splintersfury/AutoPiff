@@ -156,13 +156,13 @@ async def corpus_source(cve_id: str):
     if vuln_c.exists():
         try:
             result["vuln_source"] = vuln_c.read_text(errors="replace")
-        except OSError:
-            pass
+        except OSError as e:
+            logger.warning(f"Failed to read {vuln_c}: {e}")
     if fix_c.exists():
         try:
             result["fix_source"] = fix_c.read_text(errors="replace")
-        except OSError:
-            pass
+        except OSError as e:
+            logger.warning(f"Failed to read {fix_c}: {e}")
 
     if result["vuln_source"] is None and result["fix_source"] is None:
         raise HTTPException(

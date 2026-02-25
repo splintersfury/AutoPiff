@@ -134,8 +134,8 @@ class DriverTriageKarton(Karton):
         finally:
             try:
                 os.unlink(tmp_path)
-            except OSError:
-                pass
+            except OSError as e:
+                logger.debug(f"Failed to clean up temp file {tmp_path}: {e}")
 
     def _tag_mwdb(self, sha256: str, profile, score):
         """Tag the MWDB sample with triage results."""

@@ -107,7 +107,7 @@ class LLMClient:
         try:
             return json.loads(text)
         except json.JSONDecodeError:
-            pass
+            logger.debug("Direct JSON parse failed, trying code fence extraction")
 
         # Try extracting from code fences
         if "```json" in text:
@@ -116,7 +116,7 @@ class LLMClient:
             try:
                 return json.loads(text[start:end].strip())
             except (json.JSONDecodeError, ValueError):
-                pass
+                logger.debug("JSON code fence extraction failed")
 
         # Try extracting from plain code fences
         if "```" in text:
@@ -137,7 +137,7 @@ class LLMClient:
             try:
                 return json.loads(text[brace_start : brace_end + 1])
             except json.JSONDecodeError:
-                pass
+                logger.debug("Brace extraction failed")
 
         logger.warning(f"Could not parse LLM response as JSON: {text[:200]}...")
         return {"error": "unparseable response", "raw_text": text[:500]}

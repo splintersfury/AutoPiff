@@ -24,7 +24,8 @@ def _exists_in_mwdb(mwdb_client, sha256: str) -> bool:
         return False
     try:
         return mwdb_client.query_file(sha256) is not None
-    except Exception:
+    except Exception as e:
+        logger.debug(f"MWDB lookup failed for {sha256[:12]}: {e}")
         return False
 
 
@@ -214,8 +215,8 @@ def sweep(
                             signers_str = sig_info.get("signers", "") if hasattr(sig_info, "get") else ""
                             if signers_str:
                                 signer = signers_str.split(";")[0].strip()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"VT sweep: failed to extract metadata for {sha256[:12]}: {e}")
 
                     # Download the binary
                     try:

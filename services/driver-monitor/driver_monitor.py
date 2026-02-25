@@ -82,8 +82,8 @@ class DriverMonitor:
             if existing:
                 logger.info(f"MWDB: {sha256[:12]} already exists, skipping upload")
                 return
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"MWDB: could not check existence of {sha256[:12]}: {e}")
 
         try:
             self.mwdb.upload_file(
@@ -167,8 +167,8 @@ class DriverMonitor:
                 # Clean up temp file
                 try:
                     os.unlink(content_path)
-                except OSError:
-                    pass
+                except OSError as e:
+                    logger.debug(f"Failed to clean up temp file {content_path}: {e}")
 
         self.rdb.set(
             f"{LAST_POLL_PREFIX}:virustotal",
@@ -215,8 +215,8 @@ class DriverMonitor:
             finally:
                 try:
                     os.unlink(content_path)
-                except OSError:
-                    pass
+                except OSError as e:
+                    logger.debug(f"Failed to clean up temp file {content_path}: {e}")
 
         self.rdb.set(
             f"{LAST_POLL_PREFIX}:vt_sweep",
