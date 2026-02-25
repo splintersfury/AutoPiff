@@ -434,14 +434,20 @@ services:
       KERNELSENSE_MODEL: claude-sonnet-4-6
       KERNELSENSE_SCORE_THRESHOLD: "6.0"
       KERNELSENSE_FP_THRESHOLD: "4.0"
+      KERNELSENSE_VARIANT_ENABLED: "true"
+      KERNELSENSE_VARIANT_CONFIDENCE: "0.70"
+      KERNELSENSE_EMBEDDINGS_DIR: /data/embeddings
     volumes:
       - ./karton.ini:/etc/karton/karton.ini:ro
       - ghidra-cache:/tmp/ghidra_cache:ro
+      - kernelsense-embeddings:/data/embeddings
     networks:
       - karton
     deploy:
       resources:
         limits:
+          memory: 2G
+        reservations:
           memory: 1G
 
   # ==========================================================================
@@ -480,3 +486,4 @@ volumes:
   minio-data:
   ghidra-cache:
   dashboard-data:
+  kernelsense-embeddings:

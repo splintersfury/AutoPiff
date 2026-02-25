@@ -75,8 +75,9 @@
                 "is_variant": { "type": "boolean" },
                 "match_type": {
                   "type": "string",
-                  "enum": ["exact-match", "variant", "related"]
+                  "enum": ["exact-match", "variant", "related", "unknown"]
                 },
+                "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
                 "reasoning": { "type": "string" }
               }
             }
@@ -90,7 +91,9 @@
       "properties": {
         "total_analyzed": { "type": "integer", "minimum": 0 },
         "security_fixes": { "type": "integer", "minimum": 0 },
-        "false_positives": { "type": "integer", "minimum": 0 }
+        "false_positives": { "type": "integer", "minimum": 0 },
+        "variant_searches": { "type": "integer", "minimum": 0 },
+        "variants_found": { "type": "integer", "minimum": 0 }
       }
     }
   }

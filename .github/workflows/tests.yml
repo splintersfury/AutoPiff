@@ -18,7 +18,7 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          pip install pytest pyyaml jsonschema pefile>=2024.8.26
+          pip install pytest pyyaml jsonschema pefile>=2024.8.26 chromadb>=0.4.0
 
       - name: Run unit tests
         run: python -m pytest tests/unit/ -v

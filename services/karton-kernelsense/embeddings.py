@@ -16,7 +16,10 @@ import chromadb
 logger = logging.getLogger("kernelsense.embeddings")
 
 # ChromaDB persistent directory
-DEFAULT_PERSIST_DIR = os.path.expanduser("~/Documents/AutoPiff/data/embeddings")
+DEFAULT_PERSIST_DIR = os.environ.get(
+    "KERNELSENSE_EMBEDDINGS_DIR",
+    os.path.expanduser("~/Documents/AutoPiff/data/embeddings"),
+)
 DEFAULT_COLLECTION = "driver_functions"
 
 
@@ -92,6 +95,57 @@ class FunctionEmbeddingIndex:
                 metadatas=metadatas,
             )
             logger.info(f"Added {len(ids)} functions from {driver_name}")
+
+        return len(ids)
+
+    def add_functions_from_deltas(
+        self, driver_name: str, deltas: list[dict]
+    ) -> int:
+        """Index decompiled functions directly from semantic_deltas payload.
+
+        Each delta has 'function', 'decompiled_old', and 'decompiled_new'.
+        We index the pre-patch (old) code since that's what we want to find
+        variants of — the vulnerable version.
+
+        Returns the number of functions added.
+        """
+        ids = []
+        documents = []
+        metadatas = []
+
+        for delta in deltas:
+            func_name = delta.get("function", "")
+            # Index pre-patch code (the vulnerable version)
+            code = delta.get("decompiled_old", "")
+            if not func_name or not code or len(code.strip()) < 50:
+                continue
+
+            doc_id = self._make_id(driver_name, func_name)
+
+            # Skip if already indexed
+            existing = self.collection.get(ids=[doc_id])
+            if existing["ids"]:
+                continue
+
+            ids.append(doc_id)
+            documents.append(code)
+            metadatas.append({
+                "driver": driver_name,
+                "function": func_name,
+                "code_length": len(code),
+                "source_file": "semantic_deltas",
+            })
+
+        if ids:
+            self.collection.add(
+                ids=ids,
+                documents=documents,
+                metadatas=metadatas,
+            )
+            logger.info(
+                f"Indexed {len(ids)} functions from {driver_name} "
+                f"(via semantic_deltas)"
+            )
 
         return len(ids)
 

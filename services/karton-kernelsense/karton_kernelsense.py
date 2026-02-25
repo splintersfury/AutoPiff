@@ -4,6 +4,10 @@ AutoPiff KernelSense: LLM-Augmented Vulnerability Reasoning
 Parallel consumer of Stage 6 ranking output. Enriches high-scoring
 findings with deep LLM-based vulnerability analysis.
 
+Mode 1: Vulnerability Reasoning — assess if a patch fixes a security bug
+Mode 2: False Positive Filtering — validate low-confidence pattern matches
+Mode 3: Variant Finding — search for same bug pattern in other drivers
+
 Consumes: type=autopiff, kind=ranking
 Produces: type=autopiff, kind=kernelsense
 """
@@ -15,11 +19,13 @@ import os
 from jsonschema import ValidationError, validate
 from karton.core import Karton, Task
 
+from .embeddings import FunctionEmbeddingIndex
 from .llm_client import LLMClient
 from .prompts import (
     false_positive_filtering_prompt,
     vulnerability_reasoning_prompt,
 )
+from .variant_finder import VariantFinder
 
 logger = logging.getLogger("autopiff.kernelsense")
 
@@ -31,6 +37,11 @@ class KernelSenseKarton(Karton):
     Runs as a parallel consumer alongside Stage 7 (Report). When Stage 6
     emits a ranking, both Report and KernelSense receive it. KernelSense
     enriches findings above the score threshold with LLM analysis.
+
+    Mode 3 (variant finding) triggers automatically when Mode 1 confirms
+    a security fix with high confidence. It searches a ChromaDB embedding
+    index of decompiled functions from previously analyzed drivers for
+    structurally similar code that may share the same vulnerability.
 
     Consumes: type=autopiff, kind=ranking
     Produces: type=autopiff, kind=kernelsense
@@ -48,6 +59,12 @@ class KernelSenseKarton(Karton):
         self.fp_threshold = float(
             os.environ.get("KERNELSENSE_FP_THRESHOLD", "4.0")
         )
+        self.variant_enabled = os.environ.get(
+            "KERNELSENSE_VARIANT_ENABLED", "true"
+        ).lower() in ("true", "1", "yes")
+        self.variant_confidence_threshold = float(
+            os.environ.get("KERNELSENSE_VARIANT_CONFIDENCE", "0.70")
+        )
 
         # Load output schema
         schema_path = os.environ.get(
@@ -64,6 +81,21 @@ class KernelSenseKarton(Karton):
             self.schema = None
 
         self.llm = LLMClient()
+
+        # Embedding index + variant finder (Mode 3)
+        if self.variant_enabled:
+            self.embedding_index = FunctionEmbeddingIndex()
+            self.variant_finder = VariantFinder(
+                index=self.embedding_index, llm=self.llm
+            )
+            stats = self.embedding_index.get_stats()
+            self.log.info(
+                f"Variant finding enabled: {stats['total_functions']} functions indexed"
+            )
+        else:
+            self.embedding_index = None
+            self.variant_finder = None
+            self.log.info("Variant finding disabled")
 
     def process(self, task: Task) -> None:
         ranking_raw = task.headers.get("ranking")
@@ -83,7 +115,13 @@ class KernelSenseKarton(Karton):
         # Get semantic deltas for decompiled code access
         semantic_deltas = task.get_payload("semantic_deltas")
 
+        # Passive indexing: add all decompiled functions to the embedding
+        # index so they're available for future variant searches
+        self._index_functions(driver_new, semantic_deltas)
+
         enriched = []
+        variants_searched = 0
+        variants_found = 0
 
         for finding in findings:
             score = finding.get("final_score", 0)
@@ -97,7 +135,27 @@ class KernelSenseKarton(Karton):
                 assessment = self._reason_about_finding(
                     finding, semantic_deltas
                 )
-                enriched.append(self._build_enriched_finding(finding, assessment))
+                enriched_finding = self._build_enriched_finding(
+                    finding, assessment
+                )
+
+                # Mode 3: Variant search if confirmed security fix
+                if (
+                    self.variant_finder
+                    and assessment.get("is_security_fix")
+                    and assessment.get("confidence", 0) >= self.variant_confidence_threshold
+                ):
+                    variant_results = self._search_variants(
+                        finding, assessment, semantic_deltas, driver_new
+                    )
+                    if variant_results:
+                        enriched_finding["variant_candidates"] = variant_results
+                        variants_searched += 1
+                        variants_found += sum(
+                            1 for v in variant_results if v.get("is_variant")
+                        )
+
+                enriched.append(enriched_finding)
 
             elif score >= self.fp_threshold:
                 # Mode 2: False positive filtering for medium-score findings
@@ -133,6 +191,8 @@ class KernelSenseKarton(Karton):
                     for f in enriched
                     if f.get("false_positive_check", {}).get("is_false_positive")
                 ),
+                "variant_searches": variants_searched,
+                "variants_found": variants_found,
             },
         }
 
@@ -145,7 +205,8 @@ class KernelSenseKarton(Karton):
 
         self.log.info(
             f"KernelSense: {len(enriched)} findings analyzed, "
-            f"{output['summary']['security_fixes']} security fixes identified"
+            f"{output['summary']['security_fixes']} security fixes, "
+            f"{variants_found} variants found across {variants_searched} searches"
         )
 
         # Emit enriched task
@@ -157,6 +218,63 @@ class KernelSenseKarton(Karton):
             }
         )
         self.send_task(out_task)
+
+    def _index_functions(
+        self, driver_new: dict, semantic_deltas: dict | None
+    ) -> None:
+        """Passively index all decompiled functions from this task into ChromaDB."""
+        if not self.embedding_index or not semantic_deltas:
+            return
+
+        driver_name = driver_new.get("name", driver_new.get("sha256", "unknown"))
+        deltas = semantic_deltas.get("deltas", [])
+
+        if not deltas:
+            return
+
+        try:
+            added = self.embedding_index.add_functions_from_deltas(
+                driver_name, deltas
+            )
+            if added > 0:
+                self.log.info(f"Indexed {added} functions from {driver_name}")
+        except Exception as e:
+            self.log.debug(f"Failed to index functions: {e}")
+
+    def _search_variants(
+        self,
+        finding: dict,
+        assessment: dict,
+        semantic_deltas: dict | None,
+        driver_new: dict,
+    ) -> list[dict]:
+        """Mode 3: Search for variant vulnerabilities in the corpus."""
+        func_name = finding.get("function", "")
+        driver_name = driver_new.get("name", driver_new.get("sha256", "unknown"))
+
+        # Get the pre-patch (vulnerable) code
+        pre_code, _ = self._get_decompiled_code(func_name, semantic_deltas)
+        if pre_code == "(not available)":
+            self.log.debug(
+                f"No decompiled code for {func_name}, skipping variant search"
+            )
+            return []
+
+        self.log.info(
+            f"Variant search: {func_name} ({assessment['bug_class']})"
+        )
+
+        try:
+            results = self.variant_finder.find_variants(
+                vulnerable_code=pre_code,
+                driver_name=driver_name,
+                bug_class=assessment.get("bug_class", "unknown"),
+                reasoning=assessment.get("reasoning", ""),
+            )
+            return results
+        except Exception as e:
+            self.log.error(f"Variant search failed for {func_name}: {e}")
+            return []
 
     def _reason_about_finding(self, finding: dict, semantic_deltas: dict | None) -> dict:
         """Mode 1: Deep vulnerability reasoning for high-score findings."""
