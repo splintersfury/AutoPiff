@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-AutoPiff Alerter — Karton consumer that sends Telegram alerts for high-scoring findings.
+AutoPiff Alerter — Karton consumer that sends Telegram alerts.
 
-Consumes: {type: autopiff, kind: semantic_deltas}
+Consumes:
+  - {type: autopiff, kind: semantic_deltas} — high-scoring patch findings
+  - {type: autopiff, kind: kernelsense}     — confirmed variant vulnerabilities
+
 Filters:  final_score >= 8.0 AND surface_area in [ioctl, irp, filesystem]
+          variant_candidates where is_variant=true AND confidence >= threshold
 Sends:    Telegram alerts via HTTP API
 Stores:   Recent alerts in Redis sorted set (30-day TTL)
 """
@@ -28,25 +32,45 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 REDIS_HOST = os.environ.get("KARTON_REDIS_HOST", "karton-redis")
 SCORE_THRESHOLD = float(os.environ.get("AUTOPIFF_SCORE_THRESHOLD", "8.0"))
+VARIANT_CONFIDENCE_THRESHOLD = float(
+    os.environ.get("AUTOPIFF_VARIANT_CONFIDENCE", "0.65")
+)
 ALERTABLE_SURFACES = {"ioctl", "irp", "filesystem"}
 
 # Redis keys
 ALERTS_KEY = "autopiff:alerts:recent"
 ALERTS_FAILED_KEY = "autopiff:alerts:failed"
+VARIANT_ALERTS_KEY = "autopiff:alerts:variants"
 ALERTS_TTL_SECONDS = 30 * 24 * 3600  # 30 days
 
 
 class AutoPiffAlerter(Karton):
-    """Karton consumer that filters high-scoring AutoPiff findings and sends Telegram alerts."""
+    """Karton consumer that sends Telegram alerts for high-scoring findings and variants."""
 
     identity = "karton.autopiff.alerter"
-    filters = [{"type": "autopiff", "kind": "semantic_deltas"}]
+    filters = [
+        {"type": "autopiff", "kind": "semantic_deltas"},
+        {"type": "autopiff", "kind": "kernelsense"},
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.rdb = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
 
     def process(self, task: Task) -> None:
+        kind = task.headers.get("kind")
+        if kind == "semantic_deltas":
+            self._process_semantic_deltas(task)
+        elif kind == "kernelsense":
+            self._process_kernelsense(task)
+        else:
+            logger.warning(f"Unknown task kind: {kind}")
+
+    # ------------------------------------------------------------------
+    # Semantic Deltas (original patch-based alerting)
+    # ------------------------------------------------------------------
+
+    def _process_semantic_deltas(self, task: Task) -> None:
         semantic_deltas = task.get_payload("semantic_deltas")
         if not semantic_deltas:
             logger.warning("No semantic_deltas payload in task")
@@ -89,14 +113,120 @@ class AutoPiffAlerter(Karton):
 
         logger.info(f"Found {len(alertable)} alertable findings")
 
-        # Build and send alert
         msg = self._build_alert_message(
             alertable, driver_new_sha, driver_new_ver, driver_old_ver, summary
         )
         self._send_telegram_alert(msg)
-
-        # Store in Redis for /findings command
         self._store_alerts(alertable, driver_new_sha)
+
+    # ------------------------------------------------------------------
+    # KernelSense (variant alerting)
+    # ------------------------------------------------------------------
+
+    def _process_kernelsense(self, task: Task) -> None:
+        ks_raw = task.headers.get("kernelsense")
+        if isinstance(ks_raw, str):
+            ks_data = json.loads(ks_raw)
+        else:
+            ks_data = ks_raw
+
+        if not ks_data:
+            logger.warning("No kernelsense data in task")
+            return
+
+        findings = ks_data.get("findings", [])
+        driver_new = ks_data.get("driver_new", {})
+        driver_name = driver_new.get("name", driver_new.get("sha256", "unknown"))
+
+        # Collect all confirmed variants across all findings
+        all_variants = []
+        for finding in findings:
+            candidates = finding.get("variant_candidates", [])
+            if not candidates:
+                continue
+
+            assessment = finding.get("llm_assessment", {})
+            if not assessment.get("is_security_fix"):
+                continue
+
+            confirmed = [
+                c for c in candidates
+                if c.get("is_variant")
+                and c.get("confidence", 0) >= VARIANT_CONFIDENCE_THRESHOLD
+            ]
+
+            for variant in confirmed:
+                all_variants.append({
+                    "source_function": finding.get("function", "unknown"),
+                    "source_driver": driver_name,
+                    "bug_class": assessment.get("bug_class", "unknown"),
+                    "source_confidence": assessment.get("confidence", 0),
+                    **variant,
+                })
+
+        if not all_variants:
+            logger.info("No confirmed variants above threshold")
+            return
+
+        logger.info(f"Found {len(all_variants)} confirmed variant(s)")
+
+        msg = self._build_variant_alert(all_variants)
+        self._send_telegram_alert(msg)
+        self._store_variant_alerts(all_variants)
+
+    def _build_variant_alert(self, variants: list[dict]) -> str:
+        count = len(variants)
+        source = variants[0]
+
+        msg = (
+            f"*AutoPiff Variant Alert* — "
+            f"{count} potential variant{'s' if count > 1 else ''} found\n\n"
+        )
+        msg += (
+            f"Known vulnerability: {source['bug_class']} in "
+            f"{source['source_driver']}/`{source['source_function']}`\n"
+            f"Source confidence: *{source['source_confidence']:.2f}*\n\n"
+        )
+
+        for i, v in enumerate(variants[:5]):
+            msg += (
+                f"*{i+1}.* {v['driver']} / `{v['function']}` — "
+                f"similarity *{v['similarity']:.2f}*\n"
+            )
+            msg += f"   {v.get('match_type', 'unknown')} | confidence: {v['confidence']:.2f}\n"
+            reasoning = v.get("reasoning", "")
+            if reasoning:
+                msg += f"   _{reasoning[:100]}_\n"
+            msg += "\n"
+
+        if count > 5:
+            msg += f"_...and {count - 5} more variant(s)_\n"
+
+        return msg
+
+    def _store_variant_alerts(self, variants: list[dict]) -> None:
+        now = time.time()
+        pipe = self.rdb.pipeline()
+        for v in variants:
+            entry = {
+                "source_driver": v["source_driver"],
+                "source_function": v["source_function"],
+                "bug_class": v["bug_class"],
+                "variant_driver": v["driver"],
+                "variant_function": v["function"],
+                "similarity": v["similarity"],
+                "confidence": v["confidence"],
+                "reasoning": v.get("reasoning", ""),
+            }
+            pipe.zadd(VARIANT_ALERTS_KEY, {json.dumps(entry): now})
+
+        cutoff = now - ALERTS_TTL_SECONDS
+        pipe.zremrangebyscore(VARIANT_ALERTS_KEY, "-inf", cutoff)
+        pipe.execute()
+
+    # ------------------------------------------------------------------
+    # Shared: message building, Telegram, Redis
+    # ------------------------------------------------------------------
 
     def _build_alert_message(
         self, findings, driver_sha, new_ver, old_ver, summary

@@ -5,12 +5,14 @@ Every LLM call goes through this module, which:
 1. Prepends the disclosure boundary to every system prompt
 2. Handles retries with exponential backoff
 3. Tracks token usage to Redis for cost monitoring
+4. Enforces a daily token budget to prevent runaway API costs
 """
 
 import json
 import logging
 import os
 import time
+from datetime import datetime, timezone
 
 import anthropic
 import redis
@@ -39,6 +41,11 @@ class LLMClient:
 
         self.client = anthropic.Anthropic()
 
+        # Daily token budget (0 = unlimited)
+        self.daily_token_budget = int(
+            os.environ.get("KERNELSENSE_DAILY_TOKEN_BUDGET", "0")
+        )
+
         # Redis for usage tracking (optional)
         redis_host = os.environ.get("KARTON_REDIS_HOST", "localhost")
         try:
@@ -64,6 +71,21 @@ class LLMClient:
         Returns:
             Parsed JSON response from the LLM, or error dict.
         """
+        # Check daily budget before making the API call
+        if self.daily_token_budget > 0:
+            over, used = self._check_daily_budget()
+            if over:
+                logger.warning(
+                    f"Daily token budget exceeded ({used}/{self.daily_token_budget}), "
+                    f"skipping LLM call for: {task_context}"
+                )
+                return {
+                    "error": "daily_token_budget_exceeded",
+                    "is_security_fix": False,
+                    "budget_used": used,
+                    "budget_limit": self.daily_token_budget,
+                }
+
         system = BOUNDARY_PROMPT
         if task_context:
             system += f"\nContext: {task_context}"
@@ -142,20 +164,67 @@ class LLMClient:
         logger.warning(f"Could not parse LLM response as JSON: {text[:200]}...")
         return {"error": "unparseable response", "raw_text": text[:500]}
 
+    def _daily_key(self) -> str:
+        """Return the Redis key for today's usage."""
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        return f"kernelsense:usage:daily:{today}"
+
+    def _check_daily_budget(self) -> tuple[bool, int]:
+        """Check if today's token usage exceeds the daily budget.
+
+        Returns:
+            (over_budget, tokens_used) tuple.
+        """
+        if not self.redis:
+            return False, 0
+
+        try:
+            key = self._daily_key()
+            used_in = int(self.redis.hget(key, "input_tokens") or 0)
+            used_out = int(self.redis.hget(key, "output_tokens") or 0)
+            total_used = used_in + used_out
+            return total_used >= self.daily_token_budget, total_used
+        except redis.RedisError as e:
+            logger.debug(f"Failed to check daily budget: {e}")
+            return False, 0
+
     def _track_usage(self, usage, context: str = "") -> None:
         """Log token usage to Redis for cost monitoring."""
         if not self.redis:
             return
 
+        total_tokens = usage.input_tokens + usage.output_tokens
+
         try:
+            # Lifetime totals
             key = "kernelsense:usage:total"
             self.redis.hincrby(key, "input_tokens", usage.input_tokens)
             self.redis.hincrby(key, "output_tokens", usage.output_tokens)
             self.redis.hincrby(key, "calls", 1)
 
+            # Daily totals (auto-expire after 7 days for cleanup)
+            daily_key = self._daily_key()
+            pipe = self.redis.pipeline()
+            pipe.hincrby(daily_key, "input_tokens", usage.input_tokens)
+            pipe.hincrby(daily_key, "output_tokens", usage.output_tokens)
+            pipe.hincrby(daily_key, "calls", 1)
+            pipe.expire(daily_key, 7 * 24 * 3600)
+            pipe.execute()
+
             logger.debug(
                 f"LLM usage ({context}): "
                 f"{usage.input_tokens} in / {usage.output_tokens} out"
             )
+
+            # Warn when approaching budget
+            if self.daily_token_budget > 0:
+                daily_total = int(self.redis.hget(daily_key, "input_tokens") or 0) + \
+                              int(self.redis.hget(daily_key, "output_tokens") or 0)
+                pct = daily_total / self.daily_token_budget * 100
+                if pct >= 90:
+                    logger.warning(
+                        f"Daily token usage at {pct:.0f}% "
+                        f"({daily_total}/{self.daily_token_budget})"
+                    )
         except redis.RedisError as e:
             logger.debug(f"Failed to track usage: {e}")

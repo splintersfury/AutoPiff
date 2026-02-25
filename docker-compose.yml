@@ -436,6 +436,7 @@ services:
       KERNELSENSE_FP_THRESHOLD: "4.0"
       KERNELSENSE_VARIANT_ENABLED: "true"
       KERNELSENSE_VARIANT_CONFIDENCE: "0.70"
+      KERNELSENSE_DAILY_TOKEN_BUDGET: ${KERNELSENSE_DAILY_TOKEN_BUDGET:-0}
       KERNELSENSE_EMBEDDINGS_DIR: /data/embeddings
     volumes:
       - ./karton.ini:/etc/karton/karton.ini:ro
