@@ -281,6 +281,118 @@ class ActivityItem(BaseModel):
 # --- Corpus Validation ---
 
 
+# --- Driver Grouping ---
+
+
+class DriverSummary(BaseModel):
+    driver_name: str
+    analysis_count: int = 0
+    latest_analysis: Optional[str] = None
+    latest_date: Optional[datetime] = None
+    highest_score: float = 0.0
+    total_findings: int = 0
+    reachable_findings: int = 0
+    arch: Arch = Arch.Unknown
+
+
+# --- Alert History ---
+
+
+class AlertEntry(BaseModel):
+    score: float = 0.0
+    function: str = ""
+    rule_id: str = ""
+    category: str = ""
+    surface_area: str = ""
+    driver_new: str = ""
+    why_matters: str = ""
+    timestamp: float = 0.0
+
+
+class VariantAlertEntry(BaseModel):
+    source_driver: str = ""
+    source_function: str = ""
+    bug_class: str = ""
+    variant_driver: str = ""
+    variant_function: str = ""
+    similarity: float = 0.0
+    confidence: float = 0.0
+    reasoning: str = ""
+    timestamp: float = 0.0
+
+
+class AlertsResponse(BaseModel):
+    alerts: list[AlertEntry] = []
+    variants: list[VariantAlertEntry] = []
+
+
+# --- Search ---
+
+
+class SearchResult(BaseModel):
+    type: str  # "analysis", "finding", "driver"
+    id: str
+    title: str
+    detail: str = ""
+    score: Optional[float] = None
+    link: str = ""
+
+
+class SearchResponse(BaseModel):
+    query: str
+    results: list[SearchResult] = []
+    total: int = 0
+
+
+# --- Pipeline Health ---
+
+
+class PipelineStage(BaseModel):
+    name: str
+    identity: str
+    status: str = "unknown"
+    last_seen: Optional[str] = None
+
+
+class PipelineHealth(BaseModel):
+    stages: list[PipelineStage] = []
+    active_consumers: int = 0
+    redis_connected: bool = False
+
+
+# --- Stats / Trends ---
+
+
+class TrendPoint(BaseModel):
+    date: str
+    analyses: int = 0
+    findings: int = 0
+    reachable: int = 0
+    avg_score: float = 0.0
+
+
+class ScoreBucket(BaseModel):
+    bucket: str
+    count: int = 0
+
+
+class CategoryCount(BaseModel):
+    category: str
+    count: int = 0
+
+
+class StatsResponse(BaseModel):
+    trends: list[TrendPoint] = []
+    score_distribution: list[ScoreBucket] = []
+    by_category: list[CategoryCount] = []
+    total_analyses: int = 0
+    total_findings: int = 0
+    total_reachable: int = 0
+
+
+# --- Corpus Validation ---
+
+
 class CorpusStatus(str, Enum):
     pending = "pending"
     downloaded = "downloaded"

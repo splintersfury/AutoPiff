@@ -1,11 +1,16 @@
 import type {
   ActivityItem,
+  AlertsResponse,
   Analysis,
   AnalysisListResponse,
   CorpusOverview,
   CorpusSource,
   CVECorpusEntry,
+  DriverSummary,
   Finding,
+  PipelineHealth,
+  SearchResponse,
+  StatsResponse,
   TriageEntry,
   TriageSummary,
   TriageState,
@@ -37,8 +42,19 @@ async function postJson<T>(path: string): Promise<T> {
   return res.json();
 }
 
-export async function getAnalyses(): Promise<AnalysisListResponse> {
-  return fetchJson("/api/analyses");
+export async function getAnalyses(filters?: {
+  min_score?: number;
+  noise_risk?: string;
+  decision?: string;
+  arch?: string;
+}): Promise<AnalysisListResponse> {
+  const params = new URLSearchParams();
+  if (filters?.min_score) params.set("min_score", String(filters.min_score));
+  if (filters?.noise_risk) params.set("noise_risk", filters.noise_risk);
+  if (filters?.decision) params.set("decision", filters.decision);
+  if (filters?.arch) params.set("arch", filters.arch);
+  const qs = params.toString();
+  return fetchJson(`/api/analyses${qs ? `?${qs}` : ""}`);
 }
 
 export async function getAnalysis(id: string): Promise<Analysis> {
@@ -113,4 +129,45 @@ export async function setTriageState(
     throw new Error(`API error: ${res.status} ${res.statusText}`);
   }
   return res.json();
+}
+
+// --- Drivers ---
+
+export async function getDrivers(): Promise<DriverSummary[]> {
+  return fetchJson("/api/drivers");
+}
+
+export async function getDriverAnalyses(
+  driverName: string
+): Promise<AnalysisListResponse> {
+  return fetchJson(`/api/drivers/${encodeURIComponent(driverName)}`);
+}
+
+// --- Alerts ---
+
+export async function getAlerts(limit = 50): Promise<AlertsResponse> {
+  return fetchJson(`/api/alerts?limit=${limit}`);
+}
+
+// --- Search ---
+
+export async function searchDashboard(
+  query: string,
+  limit = 50
+): Promise<SearchResponse> {
+  return fetchJson(
+    `/api/search?q=${encodeURIComponent(query)}&limit=${limit}`
+  );
+}
+
+// --- Stats ---
+
+export async function getStats(): Promise<StatsResponse> {
+  return fetchJson("/api/stats");
+}
+
+// --- Pipeline ---
+
+export async function getPipelineHealth(): Promise<PipelineHealth> {
+  return fetchJson("/api/pipeline");
 }

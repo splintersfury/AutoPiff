@@ -17,15 +17,23 @@ from .corpus import get_corpus_entry, get_corpus_overview
 from .models import (
     ActivityItem,
     ActivityType,
+    AlertEntry,
+    AlertsResponse,
     Analysis,
     AnalysisListResponse,
     CorpusOverview,
     CVECorpusEntry,
+    DriverSummary,
     Finding,
     HealthResponse,
+    PipelineHealth,
+    PipelineStage,
+    SearchResponse,
+    StatsResponse,
     TriageEntry,
     TriageSummary,
     TriageUpdate,
+    VariantAlertEntry,
 )
 from .storage import FileStorage, MWDBStorage
 from .triage import TriageStore
@@ -82,6 +90,26 @@ async def require_api_key(authorization: Optional[str] = Header(None)) -> None:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
+# Redis connection (for alerts + pipeline health — optional)
+KARTON_REDIS_HOST = os.environ.get("KARTON_REDIS_HOST", "")
+_redis_client = None
+
+
+def _get_redis():
+    global _redis_client
+    if _redis_client is None and KARTON_REDIS_HOST:
+        try:
+            import redis
+            _redis_client = redis.Redis(
+                host=KARTON_REDIS_HOST, port=6379, decode_responses=True, socket_timeout=3,
+            )
+            _redis_client.ping()
+        except Exception as e:
+            logger.warning("Redis not available: %s", e)
+            _redis_client = None
+    return _redis_client
+
+
 # Corpus validation
 CORPUS_DIR = Path(os.environ.get("AUTOPIFF_CORPUS_DIR", "/data/corpus"))
 MANIFEST_PATH = Path(os.environ.get("AUTOPIFF_MANIFEST_PATH", "/data/corpus_manifest.json"))
@@ -93,12 +121,26 @@ async def health():
 
 
 @app.get("/api/analyses", response_model=AnalysisListResponse)
-async def list_analyses(source: str = "file"):
-    """List all available analyses."""
+async def list_analyses(
+    source: str = "file",
+    min_score: float = 0.0,
+    noise_risk: Optional[str] = None,
+    decision: Optional[str] = None,
+    arch: Optional[str] = None,
+):
+    """List all available analyses with optional filters."""
     if source == "mwdb" and mwdb_storage:
         items = await mwdb_storage.list_analyses()
     else:
         items = file_storage.list_analyses()
+    if min_score > 0:
+        items = [a for a in items if a.top_score >= min_score]
+    if noise_risk:
+        items = [a for a in items if a.noise_risk and a.noise_risk.value == noise_risk]
+    if decision:
+        items = [a for a in items if a.decision and a.decision.value == decision]
+    if arch:
+        items = [a for a in items if a.arch.value == arch]
     return AnalysisListResponse(analyses=items, total=len(items))
 
 
@@ -149,6 +191,162 @@ async def upload_analysis(file: UploadFile, _auth: None = Depends(require_api_ke
     analysis_id = str(uuid.uuid4())[:8]
     analysis = file_storage.save_analysis(analysis_id, artifacts)
     return analysis
+
+
+# ==========================================================================
+# Drivers (per-driver grouping)
+# ==========================================================================
+
+
+@app.get("/api/drivers", response_model=list[DriverSummary])
+async def list_drivers():
+    """Group analyses by driver and return driver-level summaries."""
+    return file_storage.get_drivers()
+
+
+@app.get("/api/drivers/{driver_name}", response_model=AnalysisListResponse)
+async def get_driver_analyses(driver_name: str):
+    """Get all analyses for a specific driver."""
+    items = file_storage.get_driver_analyses(driver_name)
+    if not items:
+        raise HTTPException(status_code=404, detail=f"Driver '{driver_name}' not found")
+    return AnalysisListResponse(analyses=items, total=len(items))
+
+
+# ==========================================================================
+# Alerts (from Redis)
+# ==========================================================================
+
+
+@app.get("/api/alerts", response_model=AlertsResponse)
+async def get_alerts(limit: int = 50):
+    """Fetch recent alerts and variant alerts from Redis."""
+    rdb = _get_redis()
+    if not rdb:
+        return AlertsResponse()
+
+    alerts = []
+    try:
+        raw_alerts = rdb.zrevrange("autopiff:alerts:recent", 0, limit - 1, withscores=True)
+        for entry_json, ts in raw_alerts:
+            data = json.loads(entry_json)
+            surface = data.get("surface_area", "")
+            if isinstance(surface, list):
+                surface = ", ".join(surface)
+            alerts.append(AlertEntry(
+                score=data.get("score", 0),
+                function=data.get("function", ""),
+                rule_id=data.get("rule_id", ""),
+                category=data.get("category", ""),
+                surface_area=surface,
+                driver_new=data.get("driver_new", ""),
+                why_matters=data.get("why_matters", ""),
+                timestamp=ts,
+            ))
+    except Exception as e:
+        logger.warning("Failed to read alerts: %s", e)
+
+    variants = []
+    try:
+        raw_variants = rdb.zrevrange("autopiff:alerts:variants", 0, limit - 1, withscores=True)
+        for entry_json, ts in raw_variants:
+            data = json.loads(entry_json)
+            variants.append(VariantAlertEntry(
+                source_driver=data.get("source_driver", ""),
+                source_function=data.get("source_function", ""),
+                bug_class=data.get("bug_class", ""),
+                variant_driver=data.get("variant_driver", ""),
+                variant_function=data.get("variant_function", ""),
+                similarity=data.get("similarity", 0),
+                confidence=data.get("confidence", 0),
+                reasoning=data.get("reasoning", ""),
+                timestamp=ts,
+            ))
+    except Exception as e:
+        logger.warning("Failed to read variant alerts: %s", e)
+
+    return AlertsResponse(alerts=alerts, variants=variants)
+
+
+# ==========================================================================
+# Search
+# ==========================================================================
+
+
+@app.get("/api/search", response_model=SearchResponse)
+async def search(q: str = "", limit: int = 50):
+    """Search across drivers, analyses, and findings."""
+    if not q or len(q) < 2:
+        return SearchResponse(query=q)
+    results = file_storage.search(q, limit=limit)
+    return SearchResponse(query=q, results=results, total=len(results))
+
+
+# ==========================================================================
+# Stats & Trends
+# ==========================================================================
+
+
+@app.get("/api/stats", response_model=StatsResponse)
+async def get_stats():
+    """Get trend data, score distribution, and category breakdown."""
+    return file_storage.get_stats()
+
+
+# ==========================================================================
+# Pipeline Health
+# ==========================================================================
+
+
+_EXPECTED_STAGES = [
+    ("Patch Differ (1-4)", "karton.autopiff.patch-differ"),
+    ("Reachability (5)", "karton.autopiff.reachability"),
+    ("Ranking (6)", "karton.autopiff.ranking"),
+    ("Report (7)", "karton.autopiff.report"),
+    ("Alerter", "karton.autopiff.alerter"),
+    ("Driver Triage", "karton.driveratlas.triage"),
+    ("KernelSense", "karton.autopiff.kernelsense"),
+    ("Driver Monitor", "karton.autopiff.driver-monitor"),
+]
+
+
+@app.get("/api/pipeline", response_model=PipelineHealth)
+async def pipeline_health():
+    """Get pipeline stage health from Karton Redis."""
+    rdb = _get_redis()
+    if not rdb:
+        return PipelineHealth(
+            stages=[PipelineStage(name=n, identity=i, status="unknown") for n, i in _EXPECTED_STAGES],
+        )
+
+    stages = []
+    active = 0
+    try:
+        # Karton stores online consumers in a hash
+        online_consumers = set()
+        for key in rdb.scan_iter("karton.consumer-*"):
+            try:
+                info = rdb.hgetall(key)
+                identity = info.get("identity", "")
+                if identity:
+                    online_consumers.add(identity)
+            except Exception:
+                continue
+
+        for name, identity in _EXPECTED_STAGES:
+            is_online = identity in online_consumers
+            if is_online:
+                active += 1
+            stages.append(PipelineStage(
+                name=name,
+                identity=identity,
+                status="online" if is_online else "offline",
+            ))
+    except Exception as e:
+        logger.warning("Failed to read pipeline state: %s", e)
+        stages = [PipelineStage(name=n, identity=i, status="unknown") for n, i in _EXPECTED_STAGES]
+
+    return PipelineHealth(stages=stages, active_consumers=active, redis_connected=True)
 
 
 # ==========================================================================

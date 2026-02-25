@@ -67,3 +67,26 @@
 .dark .diff-line-header {
   @apply text-blue-400 bg-blue-900/30;
 }
+
+/* Dark mode overrides for hardcoded color badges */
+.dark .bg-green-100 { @apply bg-green-900/40; }
+.dark .text-green-700, .dark .text-green-800 { @apply text-green-300; }
+.dark .bg-yellow-100 { @apply bg-yellow-900/40; }
+.dark .text-yellow-700, .dark .text-yellow-800 { @apply text-yellow-300; }
+.dark .bg-red-100 { @apply bg-red-900/40; }
+.dark .text-red-700, .dark .text-red-800 { @apply text-red-300; }
+.dark .bg-blue-100 { @apply bg-blue-900/40; }
+.dark .text-blue-700, .dark .text-blue-800 { @apply text-blue-300; }
+.dark .bg-orange-100 { @apply bg-orange-900/40; }
+.dark .text-orange-700, .dark .text-orange-800 { @apply text-orange-300; }
+.dark .bg-gray-100 { @apply bg-gray-800/60; }
+
+/* Dark mode for error/warning banners */
+.dark .bg-yellow-50 { @apply bg-yellow-900/20; }
+.dark .text-yellow-800 { @apply text-yellow-300; }
+.dark .border-yellow-300 { @apply border-yellow-700; }
+.dark .bg-red-50 { @apply bg-red-900/20; }
+.dark .text-red-800 { @apply text-red-300; }
+.dark .border-red-300 { @apply border-red-700; }
+.dark .bg-green-50 { @apply bg-green-900/20; }
+.dark .border-green-300 { @apply border-green-700; }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAnalyses, getActivity, getTriageSummary } from "@/lib/api";
+import { getAnalyses, getActivity, getTriageSummary, getStats } from "@/lib/api";
 import {
   cn,
   scoreColor,
@@ -9,6 +9,7 @@ import {
   activityColor,
   triageBadge,
   triageLabel,
+  categoryLabel,
 } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -17,21 +18,23 @@ export default async function HomePage() {
   let data;
   let activity;
   let triageSummary;
+  let stats;
   try {
-    [data, activity, triageSummary] = await Promise.all([
+    [data, activity, triageSummary, stats] = await Promise.all([
       getAnalyses(),
       getActivity(20),
       getTriageSummary(),
+      getStats(),
     ]);
   } catch {
     return (
       <div>
         <h1 className="text-2xl font-semibold">AutoPiff Dashboard</h1>
-        <div className="mt-8 rounded-lg border border-yellow-300 bg-yellow-50 p-6">
-          <h2 className="font-medium text-yellow-800">
+        <div className="mt-8 rounded-lg border border-yellow-300 bg-yellow-50 p-6 dark:border-yellow-700 dark:bg-yellow-900/20">
+          <h2 className="font-medium text-yellow-800 dark:text-yellow-300">
             Backend not available
           </h2>
-          <p className="mt-1 text-sm text-yellow-700">
+          <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-400">
             Could not connect to the API. Make sure the backend is running on
             port 8000.
           </p>
@@ -49,6 +52,11 @@ export default async function HomePage() {
   const highestScore =
     analyses.length > 0 ? Math.max(...analyses.map((a) => a.top_score)) : 0;
 
+  // Score distribution max for chart scaling
+  const maxBucketCount = stats
+    ? Math.max(...stats.score_distribution.map((b) => b.count), 1)
+    : 1;
+
   return (
     <div className="space-y-8">
       <div>
@@ -60,17 +68,17 @@ export default async function HomePage() {
 
       {/* Summary stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <div className="rounded-xl border bg-card p-5">
+        <Link href="/analyses" className="rounded-xl border bg-card p-5 transition-colors hover:border-foreground/20">
           <p className="text-sm text-muted-foreground">Total Analyses</p>
           <p className="mt-1 text-2xl font-semibold">{analyses.length}</p>
-        </div>
-        <div className="rounded-xl border bg-card p-5">
+        </Link>
+        <Link href="/analyses?min_score=0" className="rounded-xl border bg-card p-5 transition-colors hover:border-foreground/20">
           <p className="text-sm text-muted-foreground">Total Findings</p>
           <p className="mt-1 text-2xl font-semibold">{totalFindings}</p>
-        </div>
+        </Link>
         <div className="rounded-xl border bg-card p-5">
           <p className="text-sm text-muted-foreground">Reachable</p>
-          <p className="mt-1 text-2xl font-semibold text-orange-600">
+          <p className="mt-1 text-2xl font-semibold text-orange-600 dark:text-orange-400">
             {reachableFindings}
           </p>
         </div>
@@ -93,7 +101,7 @@ export default async function HomePage() {
               : totalFindings}
           </p>
           {triageSummary && triageSummary.confirmed > 0 && (
-            <p className="mt-0.5 text-xs text-red-600">
+            <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">
               {triageSummary.confirmed} confirmed
             </p>
           )}
@@ -125,6 +133,105 @@ export default async function HomePage() {
                 {triageLabel(state)}: {triageSummary[state]}
               </span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Trend Charts */}
+      {stats && (stats.score_distribution.some((b) => b.count > 0) || stats.by_category.length > 0) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {/* Score Distribution */}
+          <div className="rounded-xl border bg-card p-5">
+            <p className="mb-4 text-sm font-medium text-muted-foreground">
+              Score Distribution
+            </p>
+            <div className="flex items-end gap-2" style={{ height: "100px" }}>
+              {stats.score_distribution.map((b) => {
+                const pct = maxBucketCount > 0 ? (b.count / maxBucketCount) * 100 : 0;
+                const colorClass =
+                  b.bucket === "10+"
+                    ? "bg-red-500"
+                    : b.bucket === "8-10"
+                      ? "bg-orange-500"
+                      : b.bucket === "6-8"
+                        ? "bg-yellow-500"
+                        : b.bucket === "4-6"
+                          ? "bg-yellow-400"
+                          : b.bucket === "2-4"
+                            ? "bg-green-400"
+                            : "bg-green-500";
+                return (
+                  <div key={b.bucket} className="flex flex-1 flex-col items-center gap-1">
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {b.count}
+                    </span>
+                    <div
+                      className={cn("w-full rounded-t", colorClass)}
+                      style={{ height: `${Math.max(pct, 3)}%` }}
+                    />
+                    <span className="text-[10px] text-muted-foreground">{b.bucket}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Category Breakdown */}
+          <div className="rounded-xl border bg-card p-5">
+            <p className="mb-4 text-sm font-medium text-muted-foreground">
+              Findings by Category
+            </p>
+            <div className="space-y-2">
+              {stats.by_category.slice(0, 8).map((c) => {
+                const maxCat = stats.by_category[0]?.count || 1;
+                const pct = (c.count / maxCat) * 100;
+                return (
+                  <div key={c.category} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span>{categoryLabel(c.category)}</span>
+                      <span className="font-mono text-muted-foreground">{c.count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted">
+                      <div
+                        className="h-1.5 rounded-full bg-blue-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Findings Over Time */}
+      {stats && stats.trends.length > 1 && (
+        <div className="rounded-xl border bg-card p-5">
+          <p className="mb-4 text-sm font-medium text-muted-foreground">
+            Findings Over Time
+          </p>
+          <div className="flex items-end gap-1" style={{ height: "80px" }}>
+            {stats.trends.map((t) => {
+              const maxFindings = Math.max(...stats.trends.map((p) => p.findings), 1);
+              const pct = (t.findings / maxFindings) * 100;
+              return (
+                <div
+                  key={t.date}
+                  className="flex flex-1 flex-col items-center gap-1"
+                  title={`${t.date}: ${t.findings} findings, ${t.analyses} analyses`}
+                >
+                  <div
+                    className="w-full rounded-t bg-blue-500/70"
+                    style={{ height: `${Math.max(pct, 3)}%` }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+            <span>{stats.trends[0]?.date}</span>
+            <span>{stats.trends[stats.trends.length - 1]?.date}</span>
           </div>
         </div>
       )}
@@ -205,7 +312,7 @@ export default async function HomePage() {
             <h2 className="text-lg font-semibold">Recent Analyses</h2>
             <Link
               href="/analyses"
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-blue-600 hover:underline dark:text-blue-400"
             >
               View all
             </Link>
@@ -242,7 +349,7 @@ export default async function HomePage() {
                   <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{a.total_findings} findings</span>
                     {a.reachable_findings > 0 && (
-                      <span className="text-orange-600">
+                      <span className="text-orange-600 dark:text-orange-400">
                         {a.reachable_findings} reachable
                       </span>
                     )}

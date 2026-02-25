@@ -16,13 +16,17 @@ from typing import Optional
 
 import httpx
 
+from collections import defaultdict
+
 from .models import (
     Analysis,
     AnalysisListItem,
     Arch,
+    CategoryCount,
     DeltaSummary,
     DispatchInfo,
     DriverInfo,
+    DriverSummary,
     Finding,
     IOCTLInfo,
     MatchingQuality,
@@ -33,8 +37,12 @@ from .models import (
     ReachabilityClass,
     ReachabilityResult,
     ReachabilityTag,
+    ScoreBucket,
     ScoreBreakdown,
+    SearchResult,
+    StatsResponse,
     SymbolsResult,
+    TrendPoint,
 )
 
 logger = logging.getLogger(__name__)
@@ -295,6 +303,161 @@ class FileStorage:
                 data = json.load(f)
             return _parse_analysis_from_artifacts(path.stem, data)
         return None
+
+    def get_drivers(self) -> list[DriverSummary]:
+        """Group analyses by driver name and return driver summaries."""
+        items = self.list_analyses()
+        by_driver: dict[str, list[AnalysisListItem]] = defaultdict(list)
+        for item in items:
+            name = item.driver_name or item.id
+            by_driver[name].append(item)
+
+        drivers = []
+        for name, analyses in by_driver.items():
+            analyses.sort(key=lambda a: a.created_at, reverse=True)
+            latest = analyses[0]
+            reachable = sum(a.reachable_findings for a in analyses)
+            drivers.append(DriverSummary(
+                driver_name=name,
+                analysis_count=len(analyses),
+                latest_analysis=latest.id,
+                latest_date=latest.created_at,
+                highest_score=max(a.top_score for a in analyses),
+                total_findings=sum(a.total_findings for a in analyses),
+                reachable_findings=reachable,
+                arch=latest.arch,
+            ))
+        drivers.sort(key=lambda d: d.highest_score, reverse=True)
+        return drivers
+
+    def get_driver_analyses(self, driver_name: str) -> list[AnalysisListItem]:
+        """Return all analyses for a specific driver."""
+        items = self.list_analyses()
+        return [
+            a for a in items
+            if (a.driver_name or a.id) == driver_name
+        ]
+
+    def search(self, query: str, limit: int = 50) -> list[SearchResult]:
+        """Search across analyses and findings."""
+        q = query.lower()
+        results: list[SearchResult] = []
+        seen_analyses: set[str] = set()
+
+        for path in sorted(self.analyses_dir.iterdir(), reverse=True):
+            try:
+                analysis = self._load(path)
+                if analysis is None:
+                    continue
+
+                name = analysis.driver_new.product or analysis.id
+                # Match on driver name / id
+                if q in name.lower() or q in analysis.id.lower():
+                    if analysis.id not in seen_analyses:
+                        seen_analyses.add(analysis.id)
+                        results.append(SearchResult(
+                            type="analysis",
+                            id=analysis.id,
+                            title=name,
+                            detail=f"{len(analysis.findings)} findings, top score {analysis.findings[0].final_score:.1f}" if analysis.findings else "No findings",
+                            score=analysis.findings[0].final_score if analysis.findings else None,
+                            link=f"/analysis/{analysis.id}",
+                        ))
+
+                # Match on findings
+                for finding in analysis.findings:
+                    if (q in finding.function.lower()
+                        or q in finding.rule_id.lower()
+                        or q in finding.category.value.lower()
+                        or any(q in s.lower() for s in finding.sinks)):
+                        results.append(SearchResult(
+                            type="finding",
+                            id=f"{analysis.id}:{finding.function}",
+                            title=f"{finding.function} in {name}",
+                            detail=f"{finding.category.value} | {finding.rule_id} | score {finding.final_score:.1f}",
+                            score=finding.final_score,
+                            link=f"/analysis/{analysis.id}",
+                        ))
+
+                if len(results) >= limit:
+                    break
+            except Exception:
+                continue
+
+        results.sort(key=lambda r: r.score or 0, reverse=True)
+        return results[:limit]
+
+    def get_stats(self) -> StatsResponse:
+        """Compute trend data, score distribution, and category breakdown."""
+        items = self.list_analyses()
+
+        # Trends: group by date
+        by_date: dict[str, list[AnalysisListItem]] = defaultdict(list)
+        for a in items:
+            dt = a.created_at if isinstance(a.created_at, datetime) else datetime.fromisoformat(str(a.created_at))
+            date_str = dt.strftime("%Y-%m-%d")
+            by_date[date_str].append(a)
+
+        trends = []
+        for date_str in sorted(by_date.keys())[-30:]:  # Last 30 days
+            day_items = by_date[date_str]
+            findings_count = sum(a.total_findings for a in day_items)
+            reachable_count = sum(a.reachable_findings for a in day_items)
+            scores = [a.top_score for a in day_items if a.top_score > 0]
+            trends.append(TrendPoint(
+                date=date_str,
+                analyses=len(day_items),
+                findings=findings_count,
+                reachable=reachable_count,
+                avg_score=sum(scores) / len(scores) if scores else 0.0,
+            ))
+
+        # Score distribution: bucket all findings
+        buckets = {"0-2": 0, "2-4": 0, "4-6": 0, "6-8": 0, "8-10": 0, "10+": 0}
+        total_findings = 0
+        total_reachable = 0
+        cat_counts: dict[str, int] = defaultdict(int)
+
+        for path in sorted(self.analyses_dir.iterdir(), reverse=True):
+            try:
+                analysis = self._load(path)
+                if analysis is None:
+                    continue
+                for f in analysis.findings:
+                    total_findings += 1
+                    if f.reachability_class in (ReachabilityClass.ioctl, ReachabilityClass.irp):
+                        total_reachable += 1
+                    s = f.final_score
+                    if s >= 10:
+                        buckets["10+"] += 1
+                    elif s >= 8:
+                        buckets["8-10"] += 1
+                    elif s >= 6:
+                        buckets["6-8"] += 1
+                    elif s >= 4:
+                        buckets["4-6"] += 1
+                    elif s >= 2:
+                        buckets["2-4"] += 1
+                    else:
+                        buckets["0-2"] += 1
+                    cat_counts[f.category.value] += 1
+            except Exception:
+                continue
+
+        score_dist = [ScoreBucket(bucket=k, count=v) for k, v in buckets.items()]
+        by_cat = sorted(
+            [CategoryCount(category=k, count=v) for k, v in cat_counts.items()],
+            key=lambda c: c.count, reverse=True,
+        )
+
+        return StatsResponse(
+            trends=trends,
+            score_distribution=score_dist,
+            by_category=by_cat,
+            total_analyses=len(items),
+            total_findings=total_findings,
+            total_reachable=total_reachable,
+        )
 
 
 class MWDBStorage:

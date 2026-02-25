@@ -260,3 +260,107 @@ export interface ActivityItem {
   link: string;
   score?: number | null;
 }
+
+// --- Driver Grouping ---
+
+export interface DriverSummary {
+  driver_name: string;
+  analysis_count: number;
+  latest_analysis?: string | null;
+  latest_date?: string | null;
+  highest_score: number;
+  total_findings: number;
+  reachable_findings: number;
+  arch: Arch;
+}
+
+// --- Alert History ---
+
+export interface AlertEntry {
+  score: number;
+  function: string;
+  rule_id: string;
+  category: string;
+  surface_area: string;
+  driver_new: string;
+  why_matters: string;
+  timestamp: number;
+}
+
+export interface VariantAlertEntry {
+  source_driver: string;
+  source_function: string;
+  bug_class: string;
+  variant_driver: string;
+  variant_function: string;
+  similarity: number;
+  confidence: number;
+  reasoning: string;
+  timestamp: number;
+}
+
+export interface AlertsResponse {
+  alerts: AlertEntry[];
+  variants: VariantAlertEntry[];
+}
+
+// --- Search ---
+
+export interface SearchResult {
+  type: string;
+  id: string;
+  title: string;
+  detail: string;
+  score?: number | null;
+  link: string;
+}
+
+export interface SearchResponse {
+  query: string;
+  results: SearchResult[];
+  total: number;
+}
+
+// --- Pipeline Health ---
+
+export interface PipelineStage {
+  name: string;
+  identity: string;
+  status: string;
+  last_seen?: string | null;
+}
+
+export interface PipelineHealth {
+  stages: PipelineStage[];
+  active_consumers: number;
+  redis_connected: boolean;
+}
+
+// --- Stats / Trends ---
+
+export interface TrendPoint {
+  date: string;
+  analyses: number;
+  findings: number;
+  reachable: number;
+  avg_score: number;
+}
+
+export interface ScoreBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface CategoryCount {
+  category: string;
+  count: number;
+}
+
+export interface StatsResponse {
+  trends: TrendPoint[];
+  score_distribution: ScoreBucket[];
+  by_category: CategoryCount[];
+  total_analyses: number;
+  total_findings: number;
+  total_reachable: number;
+}

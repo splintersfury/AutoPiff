@@ -346,6 +346,7 @@ services:
       AUTOPIFF_CORPUS_DIR: /data/corpus
       AUTOPIFF_MANIFEST_PATH: /data/corpus_manifest.json
       AUTOPIFF_TRIAGE_PATH: /data/analyses/triage.json
+      KARTON_REDIS_HOST: karton-redis
       CORS_ORIGINS: "http://localhost:3000,http://autopiff-dashboard:3000"
     ports:
       - "8000:8000"
@@ -400,6 +401,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       AUTOPIFF_SCORE_THRESHOLD: "8.0"
+      AUTOPIFF_DASHBOARD_URL: ${AUTOPIFF_DASHBOARD_URL:-http://localhost:3000}
     volumes:
       - ./karton.ini:/etc/karton/karton.ini:ro
     networks:

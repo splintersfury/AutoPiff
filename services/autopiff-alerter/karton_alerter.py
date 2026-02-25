@@ -36,6 +36,7 @@ VARIANT_CONFIDENCE_THRESHOLD = float(
     os.environ.get("AUTOPIFF_VARIANT_CONFIDENCE", "0.65")
 )
 ALERTABLE_SURFACES = {"ioctl", "irp", "filesystem"}
+DASHBOARD_URL = os.environ.get("AUTOPIFF_DASHBOARD_URL", "").rstrip("/")
 
 # Redis keys
 ALERTS_KEY = "autopiff:alerts:recent"
@@ -209,6 +210,9 @@ class AutoPiffAlerter(Karton):
         if count > 5:
             msg += f"_...and {count - 5} more variant(s)_\n"
 
+        if DASHBOARD_URL:
+            msg += f"\n[View in Dashboard]({DASHBOARD_URL}/alerts)\n"
+
         return msg
 
     def _store_variant_alerts(self, variants: list[dict]) -> None:
@@ -280,6 +284,9 @@ class AutoPiffAlerter(Karton):
 
         if count > 5:
             msg += f"_...and {count - 5} more findings_\n"
+
+        if DASHBOARD_URL:
+            msg += f"\n[View in Dashboard]({DASHBOARD_URL}/alerts)\n"
 
         return msg
 

@@ -32,6 +32,23 @@ export function categoryLabel(category: string): string {
     user_boundary_check: "User Boundary",
     int_overflow: "Integer Overflow",
     state_hardening: "State Hardening",
+    authorization: "Authorization",
+    race_condition: "Race Condition",
+    info_disclosure: "Info Disclosure",
+    ioctl_hardening: "IOCTL Hardening",
+    mdl_handling: "MDL Handling",
+    object_management: "Object Mgmt",
+    string_handling: "String Handling",
+    pool_hardening: "Pool Hardening",
+    crypto_hardening: "Crypto Hardening",
+    error_path_hardening: "Error Path",
+    dos_hardening: "DoS Hardening",
+    ndis_hardening: "NDIS Hardening",
+    filesystem_filter: "FS Filter",
+    pnp_power: "PnP/Power",
+    dma_mmio: "DMA/MMIO",
+    wdf_hardening: "WDF Hardening",
+    new_attack_surface: "New Surface",
   };
   return labels[category] || category;
 }
