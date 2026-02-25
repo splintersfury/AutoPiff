@@ -71,7 +71,13 @@ class AutoPiffAlerter(Karton):
             score = delta.get("final_score", delta.get("confidence", 0))
             surface = delta.get("surface_area", "unknown")
 
-            if score >= SCORE_THRESHOLD and surface in ALERTABLE_SURFACES:
+            # surface_area can be a string or a list of strings
+            if isinstance(surface, list):
+                surface_match = any(s in ALERTABLE_SURFACES for s in surface)
+            else:
+                surface_match = surface in ALERTABLE_SURFACES
+
+            if score >= SCORE_THRESHOLD and surface_match:
                 alertable.append(delta)
 
         if not alertable:
