@@ -46,10 +46,12 @@ COPY schemas /app/schemas
 COPY services/karton-patch-differ/__init__.py /app/karton_patch_differ/__init__.py
 COPY services/karton-patch-differ/karton_patch_differ.py /app/karton_patch_differ/karton_patch_differ.py
 COPY services/karton-patch-differ/rule_engine.py /app/karton_patch_differ/rule_engine.py
+COPY services/karton-patch-differ/exploit_mapper.py /app/karton_patch_differ/exploit_mapper.py
 COPY services/karton-patch-differ/ExportDecompiled.py /app/ExportDecompiled.py
 
 # Fix imports for flat structure
 RUN sed -i 's/from \.rule_engine/from karton_patch_differ.rule_engine/' /app/karton_patch_differ/karton_patch_differ.py && \
+    sed -i 's/from \.exploit_mapper/from karton_patch_differ.exploit_mapper/' /app/karton_patch_differ/karton_patch_differ.py && \
     sed -i "s|os.path.join(os.path.dirname(__file__), '..', '..', 'schemas')|'/app/schemas'|" /app/karton_patch_differ/karton_patch_differ.py && \
     sed -i "s|os.path.join(os.path.dirname(__file__), '..', '..', 'rules')|'/app/rules'|" /app/karton_patch_differ/karton_patch_differ.py && \
     sed -i "s|os.path.join(os.path.dirname(__file__), \"ExportDecompiled.py\")|'/app/ExportDecompiled.py'|" /app/karton_patch_differ/karton_patch_differ.py

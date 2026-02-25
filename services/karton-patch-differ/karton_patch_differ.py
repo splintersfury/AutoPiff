@@ -31,6 +31,7 @@ from mwdblib import MWDB, MWDBFile
 from jsonschema import validate, ValidationError
 
 from .rule_engine import SemanticRuleEngine, RuleHit
+from .exploit_mapper import ExploitMapper
 
 logging.basicConfig(
     level=logging.INFO,
@@ -165,6 +166,10 @@ class PatchDifferKarton(Karton):
                 logger.info("Scoring model loaded")
             except Exception as e:
                 logger.warning(f"Failed to load scoring model: {e}")
+
+        # Load exploit mapper
+        exploit_map_path = os.path.join(rules_dir, 'exploit_map.yaml')
+        self.exploit_mapper = ExploitMapper(exploit_map_path)
 
     # =========================================================================
     # Stage 1: Pairing & Noise Gating
@@ -1047,12 +1052,34 @@ class PatchDifferKarton(Karton):
             final_deltas = deltas
             top_score = None
 
+        # Enrich deltas with exploit context
+        if self.exploit_mapper:
+            self.exploit_mapper.enrich_deltas(final_deltas)
+
         # Top functions by delta count
         func_counts = {}
         for d in final_deltas:
             func_counts[d["function"]] = func_counts.get(d["function"], 0) + 1
         top_functions = sorted(func_counts.keys(),
                               key=lambda f: func_counts[f], reverse=True)[:10]
+
+        # Collect unique exploit primitives across all deltas
+        exploit_summary = {}
+        for d in final_deltas:
+            ctx = d.get("exploit_context")
+            if not ctx:
+                continue
+            vc = ctx["vuln_class"]
+            if vc not in exploit_summary:
+                exploit_summary[vc] = {
+                    "severity": ctx["severity"],
+                    "primitives": [p["id"] for p in ctx["primitives"]],
+                    "techniques": list({
+                        t["id"]
+                        for p in ctx["primitives"]
+                        for t in p["techniques"]
+                    }),
+                }
 
         result = {
             "autopiff_stage": "semantic_deltas",
@@ -1071,7 +1098,8 @@ class PatchDifferKarton(Karton):
                 "by_rule": by_rule,
                 "top_functions": top_functions,
                 "top_score": top_score,
-                "match_rate": round(match_rate, 1)
+                "match_rate": round(match_rate, 1),
+                "exploit_summary": exploit_summary,
             },
             "notes": [
                 f"Analyzed {len(diff.changed_funcs)} changed functions",
