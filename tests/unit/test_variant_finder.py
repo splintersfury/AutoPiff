@@ -42,7 +42,7 @@ embeddings_mod = _import_module("embeddings")
 sys.modules["karton_kernelsense.embeddings"] = embeddings_mod
 FunctionEmbeddingIndex = embeddings_mod.FunctionEmbeddingIndex
 
-# llm_client requires `anthropic` SDK — stub it since tests use mock LLMs
+# llm_client requires `openai` SDK — stub it since tests use mock LLMs
 _llm_stub = types.ModuleType("karton_kernelsense.llm_client")
 _llm_stub.LLMClient = type("LLMClient", (), {})
 sys.modules["karton_kernelsense.llm_client"] = _llm_stub

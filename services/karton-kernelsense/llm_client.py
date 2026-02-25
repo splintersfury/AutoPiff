@@ -1,5 +1,5 @@
 """
-Safe Anthropic API wrapper with mandatory disclosure boundary enforcement.
+OpenAI API wrapper with mandatory disclosure boundary enforcement.
 
 Every LLM call goes through this module, which:
 1. Prepends the disclosure boundary to every system prompt
@@ -14,7 +14,7 @@ import os
 import time
 from datetime import datetime, timezone
 
-import anthropic
+import openai
 import redis
 
 logger = logging.getLogger("kernelsense.llm")
@@ -32,19 +32,26 @@ CRITICAL SAFETY RULES — you MUST follow these without exception:
 
 
 class LLMClient:
-    """Anthropic API wrapper with boundary enforcement and usage tracking."""
+    """OpenAI API wrapper with boundary enforcement and usage tracking."""
 
     def __init__(self):
-        self.model = os.environ.get("KERNELSENSE_MODEL", "claude-sonnet-4-6")
+        self.model = os.environ.get("KERNELSENSE_MODEL", "gpt-4o")
         self.max_tokens = int(os.environ.get("KERNELSENSE_MAX_TOKENS", "2000"))
         self.temperature = float(os.environ.get("KERNELSENSE_TEMPERATURE", "0.3"))
 
-        self.client = anthropic.Anthropic()
+        self.client = openai.OpenAI()
 
         # Daily token budget (0 = unlimited)
         self.daily_token_budget = int(
             os.environ.get("KERNELSENSE_DAILY_TOKEN_BUDGET", "0")
         )
+
+        # Throttle: minimum seconds between API calls (helps stay under
+        # low-tier RPM limits like ChatGPT Plus Tier 1).  0 = no throttle.
+        self.min_call_interval = float(
+            os.environ.get("KERNELSENSE_CALL_INTERVAL", "2.0")
+        )
+        self._last_call_ts = 0.0
 
         # Redis for usage tracking (optional)
         redis_host = os.environ.get("KARTON_REDIS_HOST", "localhost")
@@ -57,12 +64,12 @@ class LLMClient:
             logger.warning("Redis not available for usage tracking")
             self.redis = None
 
-        # Retry config
-        self.max_retries = 3
-        self.base_delay = 1.0
+        # Retry config — generous for low-tier rate limits
+        self.max_retries = 5
+        self.base_delay = 5.0
 
     def analyze(self, prompt: str, task_context: str = "") -> dict:
-        """Send a prompt to Claude with boundary enforcement.
+        """Send a prompt to the LLM with boundary enforcement.
 
         Args:
             prompt: The analysis prompt (from prompts.py)
@@ -90,29 +97,50 @@ class LLMClient:
         if task_context:
             system += f"\nContext: {task_context}"
 
+        # Throttle: wait if we're calling too fast
+        if self.min_call_interval > 0:
+            elapsed = time.monotonic() - self._last_call_ts
+            if elapsed < self.min_call_interval:
+                wait = self.min_call_interval - elapsed
+                logger.debug(f"Throttling: waiting {wait:.1f}s before API call")
+                time.sleep(wait)
+
         for attempt in range(self.max_retries):
             try:
-                message = self.client.messages.create(
+                self._last_call_ts = time.monotonic()
+                response = self.client.chat.completions.create(
                     model=self.model,
                     max_tokens=self.max_tokens,
                     temperature=self.temperature,
-                    system=system,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": prompt},
+                    ],
                 )
 
                 # Track usage
-                self._track_usage(message.usage, task_context)
+                if response.usage:
+                    self._track_usage(response.usage, task_context)
 
                 # Extract and parse JSON from response
-                return self._parse_response(message.content[0].text)
+                text = response.choices[0].message.content or ""
+                return self._parse_response(text)
 
-            except anthropic.RateLimitError:
-                delay = self.base_delay * (2**attempt)
+            except openai.RateLimitError as e:
+                # Respect Retry-After header if present, otherwise exponential backoff
+                retry_after = None
+                if hasattr(e, "response") and e.response is not None:
+                    retry_after = e.response.headers.get("retry-after")
+                if retry_after:
+                    delay = float(retry_after)
+                else:
+                    delay = self.base_delay * (2**attempt)
                 logger.warning(
-                    f"Rate limited, retrying in {delay}s (attempt {attempt + 1})"
+                    f"Rate limited, retrying in {delay:.0f}s "
+                    f"(attempt {attempt + 1}/{self.max_retries})"
                 )
                 time.sleep(delay)
-            except anthropic.APIError as e:
+            except openai.APIError as e:
                 logger.error(f"API error: {e}")
                 if attempt == self.max_retries - 1:
                     return {"error": str(e), "is_security_fix": False}
@@ -180,8 +208,8 @@ class LLMClient:
 
         try:
             key = self._daily_key()
-            used_in = int(self.redis.hget(key, "input_tokens") or 0)
-            used_out = int(self.redis.hget(key, "output_tokens") or 0)
+            used_in = int(self.redis.hget(key, "prompt_tokens") or 0)
+            used_out = int(self.redis.hget(key, "completion_tokens") or 0)
             total_used = used_in + used_out
             return total_used >= self.daily_token_budget, total_used
         except redis.RedisError as e:
@@ -193,33 +221,34 @@ class LLMClient:
         if not self.redis:
             return
 
-        total_tokens = usage.input_tokens + usage.output_tokens
+        prompt_tokens = usage.prompt_tokens or 0
+        completion_tokens = usage.completion_tokens or 0
 
         try:
             # Lifetime totals
             key = "kernelsense:usage:total"
-            self.redis.hincrby(key, "input_tokens", usage.input_tokens)
-            self.redis.hincrby(key, "output_tokens", usage.output_tokens)
+            self.redis.hincrby(key, "prompt_tokens", prompt_tokens)
+            self.redis.hincrby(key, "completion_tokens", completion_tokens)
             self.redis.hincrby(key, "calls", 1)
 
             # Daily totals (auto-expire after 7 days for cleanup)
             daily_key = self._daily_key()
             pipe = self.redis.pipeline()
-            pipe.hincrby(daily_key, "input_tokens", usage.input_tokens)
-            pipe.hincrby(daily_key, "output_tokens", usage.output_tokens)
+            pipe.hincrby(daily_key, "prompt_tokens", prompt_tokens)
+            pipe.hincrby(daily_key, "completion_tokens", completion_tokens)
             pipe.hincrby(daily_key, "calls", 1)
             pipe.expire(daily_key, 7 * 24 * 3600)
             pipe.execute()
 
             logger.debug(
                 f"LLM usage ({context}): "
-                f"{usage.input_tokens} in / {usage.output_tokens} out"
+                f"{prompt_tokens} in / {completion_tokens} out"
             )
 
             # Warn when approaching budget
             if self.daily_token_budget > 0:
-                daily_total = int(self.redis.hget(daily_key, "input_tokens") or 0) + \
-                              int(self.redis.hget(daily_key, "output_tokens") or 0)
+                daily_total = int(self.redis.hget(daily_key, "prompt_tokens") or 0) + \
+                              int(self.redis.hget(daily_key, "completion_tokens") or 0)
                 pct = daily_total / self.daily_token_budget * 100
                 if pct >= 90:
                     logger.warning(
