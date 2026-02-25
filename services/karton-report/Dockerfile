@@ -27,4 +27,7 @@ ENV PYTHONPATH=/app
 ENV AUTOPIFF_REPORT_SCHEMA=/app/karton_report/report.schema.json
 ENV MWDB_API_URL=http://mwdb-core:8080/api/
 
+RUN useradd --system --no-create-home --uid 1001 appuser
+USER appuser
+
 CMD ["python3", "-m", "karton_report.karton_report"]

@@ -22,11 +22,11 @@ import subprocess
 import itertools
 import uuid
 from typing import Optional, Tuple, List, Dict, Set, Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 import pefile
 import yaml
-from karton.core import Karton, Task, Resource
+from karton.core import Karton, Task
 from mwdblib import MWDB, MWDBFile
 from jsonschema import validate, ValidationError
 
@@ -1234,7 +1234,8 @@ class PatchDifferKarton(Karton):
                 out_task = Task(
                     headers={"type": "autopiff", "kind": "semantic_deltas"},
                     payload={
-                        "semantic_deltas": deltas_result
+                        "semantic_deltas": deltas_result,
+                        "pairing_result": pairing_result
                     }
                 )
                 out_task.add_resource("sample", sample_resource)

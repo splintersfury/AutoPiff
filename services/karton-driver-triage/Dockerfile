@@ -27,4 +27,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV DRIVERATLAS_SIGNATURES_DIR=/app/driveratlas-signatures
 
+RUN useradd --system --no-create-home --uid 1001 appuser
+USER appuser
+
 CMD ["python3", "karton_triage.py"]

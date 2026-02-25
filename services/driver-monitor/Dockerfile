@@ -18,4 +18,7 @@ COPY services/driver-monitor/watchlist.yaml /app/watchlist.yaml
 ENV PYTHONUNBUFFERED=1
 ENV WATCHLIST_PATH=/app/watchlist.yaml
 
+RUN useradd --system --no-create-home --uid 1001 appuser
+USER appuser
+
 CMD ["python3", "driver_monitor.py"]

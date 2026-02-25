@@ -44,6 +44,13 @@ VARIANT_ALERTS_KEY = "autopiff:alerts:variants"
 ALERTS_TTL_SECONDS = 30 * 24 * 3600  # 30 days
 
 
+def _escape_md(text: str) -> str:
+    """Escape Telegram Markdown special characters in dynamic strings."""
+    for ch in ("_", "*", "`", "[", "]"):
+        text = text.replace(ch, f"\\{ch}")
+    return text
+
+
 class AutoPiffAlerter(Karton):
     """Karton consumer that sends Telegram alerts for high-scoring findings and variants."""
 
@@ -183,20 +190,20 @@ class AutoPiffAlerter(Karton):
             f"{count} potential variant{'s' if count > 1 else ''} found\n\n"
         )
         msg += (
-            f"Known vulnerability: {source['bug_class']} in "
-            f"{source['source_driver']}/`{source['source_function']}`\n"
+            f"Known vulnerability: {_escape_md(source['bug_class'])} in "
+            f"{_escape_md(source['source_driver'])}/`{_escape_md(source['source_function'])}`\n"
             f"Source confidence: *{source['source_confidence']:.2f}*\n\n"
         )
 
         for i, v in enumerate(variants[:5]):
             msg += (
-                f"*{i+1}.* {v['driver']} / `{v['function']}` — "
+                f"*{i+1}.* {_escape_md(v['driver'])} / `{_escape_md(v['function'])}` — "
                 f"similarity *{v['similarity']:.2f}*\n"
             )
-            msg += f"   {v.get('match_type', 'unknown')} | confidence: {v['confidence']:.2f}\n"
+            msg += f"   {_escape_md(v.get('match_type', 'unknown'))} | confidence: {v['confidence']:.2f}\n"
             reasoning = v.get("reasoning", "")
             if reasoning:
-                msg += f"   _{reasoning[:100]}_\n"
+                msg += f"   _{_escape_md(reasoning[:100])}_\n"
             msg += "\n"
 
         if count > 5:
@@ -246,16 +253,20 @@ class AutoPiffAlerter(Karton):
         else:
             msg = f"*AutoPiff Alert* — {count} high-scoring finding{'s' if count > 1 else ''}\n\n"
 
-        msg += f"Driver: `{driver_sha[:16]}...`\n"
-        msg += f"Versions: {old_ver} -> {new_ver}\n"
+        msg += f"Driver: `{_escape_md(driver_sha[:16])}...`\n"
+        msg += f"Versions: {_escape_md(old_ver)} -> {_escape_md(new_ver)}\n"
         msg += f"Top score: *{top_score:.1f}*\n\n"
 
         for i, finding in enumerate(findings[:5]):
             score = finding.get("final_score", finding.get("confidence", 0))
-            func = finding.get("function", "unknown")
-            rule = finding.get("rule_id", "unknown")
-            category = finding.get("category", "unknown")
+            func = _escape_md(finding.get("function", "unknown"))
+            rule = _escape_md(finding.get("rule_id", "unknown"))
+            category = _escape_md(finding.get("category", "unknown"))
             surface = finding.get("surface_area", "unknown")
+            if isinstance(surface, list):
+                surface = ", ".join(_escape_md(s) for s in surface)
+            else:
+                surface = _escape_md(surface)
             change_type = finding.get("change_type", "patch")
             tag = "[NEW]" if change_type == "new_feature" else "[PATCH]"
 
@@ -264,7 +275,7 @@ class AutoPiffAlerter(Karton):
 
             why = finding.get("why_matters", "")
             if why:
-                msg += f"   _{why[:100]}_\n"
+                msg += f"   _{_escape_md(why[:100])}_\n"
             msg += "\n"
 
         if count > 5:

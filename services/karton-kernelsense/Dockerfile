@@ -10,4 +10,7 @@ COPY services/karton-kernelsense/ /app/karton_kernelsense/
 
 ENV PYTHONPATH=/app
 
+RUN useradd --system --no-create-home --uid 1001 appuser
+USER appuser
+
 CMD ["python3", "-m", "karton_kernelsense.karton_kernelsense"]

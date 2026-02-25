@@ -40,6 +40,13 @@ CATEGORIES_PATH = os.path.join(SIGNATURES_DIR, "api_categories.yaml")
 ATTACK_SURFACE_PATH = os.path.join(SIGNATURES_DIR, "attack_surface.yaml")
 
 
+def _escape_md(text: str) -> str:
+    """Escape Telegram Markdown special characters in dynamic strings."""
+    for ch in ("_", "*", "`", "[", "]"):
+        text = text.replace(ch, f"\\{ch}")
+    return text
+
+
 class DriverTriageKarton(Karton):
     """Karton consumer that triages every Windows driver via DriverAtlas scoring."""
 
@@ -165,19 +172,19 @@ class DriverTriageKarton(Karton):
             return
 
         msg = f"*DriverAtlas Triage Alert*\n\n"
-        msg += f"Driver: `{profile.name}`\n"
-        msg += f"SHA256: `{sha256[:16]}...`\n"
-        msg += f"Score: *{score.total:.1f}* ({score.risk_level.upper()})\n"
-        msg += f"Framework: {profile.framework}\n"
+        msg += f"Driver: `{_escape_md(profile.name)}`\n"
+        msg += f"SHA256: `{_escape_md(sha256[:16])}...`\n"
+        msg += f"Score: *{score.total:.1f}* ({_escape_md(score.risk_level.upper())})\n"
+        msg += f"Framework: {_escape_md(profile.framework)}\n"
         msg += f"Imports: {profile.import_count}\n"
 
         if profile.device_names:
-            msg += f"Devices: {', '.join(profile.device_names[:3])}\n"
+            msg += f"Devices: {', '.join(_escape_md(d) for d in profile.device_names[:3])}\n"
 
         if score.flags:
             msg += f"\nRisk factors:\n"
             for flag in score.flags[:5]:
-                msg += f"  - {flag}\n"
+                msg += f"  - {_escape_md(flag)}\n"
 
         try:
             resp = requests.post(

@@ -30,7 +30,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Download and setup Ghidra
 ARG GHIDRA_VERSION=11.2.1
 ARG GHIDRA_DATE=20241105
+ARG GHIDRA_SHA256="PLACEHOLDER"
 RUN wget -q https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_${GHIDRA_VERSION}_build/ghidra_${GHIDRA_VERSION}_PUBLIC_${GHIDRA_DATE}.zip -O ghidra.zip && \
+    echo "${GHIDRA_SHA256}  ghidra.zip" | sha256sum --check --status || (echo "Ghidra SHA256 mismatch!" && exit 1) && \
     unzip -q ghidra.zip && \
     mv ghidra_* ghidra && \
     rm ghidra.zip && \

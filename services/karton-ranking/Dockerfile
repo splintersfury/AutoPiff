@@ -29,4 +29,7 @@ ENV PYTHONPATH=/app
 ENV AUTOPIFF_RANKING_SCHEMA=/app/karton_ranking/ranking.schema.json
 ENV AUTOPIFF_SCORING_YAML=/app/rules/scoring.yaml
 
+RUN useradd --system --no-create-home --uid 1001 appuser
+USER appuser
+
 CMD ["python3", "-m", "karton_ranking.karton_ranking"]

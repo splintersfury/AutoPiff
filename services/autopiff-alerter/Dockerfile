@@ -15,4 +15,7 @@ COPY services/autopiff-alerter/karton_alerter.py /app/karton_alerter.py
 
 ENV PYTHONUNBUFFERED=1
 
+RUN useradd --system --no-create-home --uid 1001 appuser
+USER appuser
+
 CMD ["python3", "karton_alerter.py"]

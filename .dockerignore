@@ -1,0 +1,17 @@
+.git/
+.github/
+.env
+.env.*
+!.env.example
+*.png
+*.zip
+corpus/
+ghidra/
+ghidra_*/
+tests/validation/corpus/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.tmp-analyses/
+.playwright-mcp/

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -201,7 +201,7 @@ def _parse_analysis_from_artifacts(analysis_id: str, artifacts: dict) -> Analysi
         )
 
     created_raw = artifacts.get("_created_at")
-    created_at = datetime.fromisoformat(created_raw) if created_raw else datetime.utcnow()
+    created_at = datetime.fromisoformat(created_raw) if created_raw else datetime.now(timezone.utc)
 
     return Analysis(
         id=analysis_id,
@@ -274,7 +274,7 @@ class FileStorage:
         dir_path = self.analyses_dir / analysis_id
         dir_path.mkdir(parents=True, exist_ok=True)
         combined_path = dir_path / "combined.json"
-        artifacts["_created_at"] = datetime.utcnow().isoformat()
+        artifacts["_created_at"] = datetime.now(timezone.utc).isoformat()
         with open(combined_path, "w") as f:
             json.dump(artifacts, f, indent=2)
         return _parse_analysis_from_artifacts(analysis_id, artifacts)
@@ -324,7 +324,7 @@ class MWDBStorage:
             sha = f.get("sha256", "")
             items.append(AnalysisListItem(
                 id=sha[:12],
-                created_at=datetime.fromisoformat(f["upload_time"]) if "upload_time" in f else datetime.utcnow(),
+                created_at=datetime.fromisoformat(f["upload_time"]) if "upload_time" in f else datetime.now(timezone.utc),
                 driver_name=f.get("file_name"),
                 total_findings=0,
             ))

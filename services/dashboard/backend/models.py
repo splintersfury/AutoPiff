@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -186,7 +186,7 @@ class ReachabilityResult(BaseModel):
 
 class Analysis(BaseModel):
     id: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     driver_new: DriverInfo
     driver_old: Optional[DriverInfo] = None
     pairing: Optional[PairingResult] = None
@@ -239,7 +239,7 @@ class TriageEntry(BaseModel):
     analysis_id: str
     function: str
     state: TriageState = TriageState.untriaged
-    updated_at: datetime = Field(default_factory=lambda: datetime.now())
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     note: str = ""
 
 

@@ -165,6 +165,11 @@ class FunctionEmbeddingIndex:
         Returns:
             List of {driver, function, code, similarity} dicts
         """
+        # Guard: ChromaDB raises if n_results > collection size
+        n_results = min(n_results, self.collection.count())
+        if n_results == 0:
+            return []
+
         where_filter = None
         if exclude_driver:
             where_filter = {"driver": {"$ne": exclude_driver}}

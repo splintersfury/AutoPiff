@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
 import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .corpus import get_corpus_entry, get_corpus_overview
@@ -57,6 +58,29 @@ mwdb_storage = MWDBStorage(MWDB_API_URL, MWDB_API_KEY) if MWDB_API_URL else None
 # Triage store
 TRIAGE_PATH = os.environ.get("AUTOPIFF_TRIAGE_PATH", "/data/triage.json")
 triage_store = TriageStore(TRIAGE_PATH)
+
+# API key authentication (empty = disabled for local dev)
+DASHBOARD_API_KEY = os.environ.get("DASHBOARD_API_KEY", "")
+
+
+async def require_api_key(authorization: Optional[str] = Header(None)) -> None:
+    """Dependency that enforces Bearer-token auth when DASHBOARD_API_KEY is set."""
+    if not DASHBOARD_API_KEY:
+        return  # auth disabled
+    if authorization is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing Authorization header. Expected: Bearer <api-key>",
+        )
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Authorization header. Expected: Bearer <api-key>",
+        )
+    if not secrets.compare_digest(token, DASHBOARD_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
 
 # Corpus validation
 CORPUS_DIR = Path(os.environ.get("AUTOPIFF_CORPUS_DIR", "/data/corpus"))
@@ -114,7 +138,7 @@ async def get_findings(
 
 
 @app.post("/api/analyses/upload", response_model=Analysis)
-async def upload_analysis(file: UploadFile):
+async def upload_analysis(file: UploadFile, _auth: None = Depends(require_api_key)):
     """Upload a combined analysis JSON artifact."""
     content = await file.read()
     try:
@@ -204,7 +228,7 @@ async def get_triage_state(analysis_id: str, function: str):
 
 
 @app.put("/api/triage/{analysis_id}/{function}", response_model=TriageEntry)
-async def set_triage_state(analysis_id: str, function: str, body: TriageUpdate):
+async def set_triage_state(analysis_id: str, function: str, body: TriageUpdate, _auth: None = Depends(require_api_key)):
     """Update triage state for a specific finding."""
     return triage_store.set(analysis_id, function, body.state, body.note)
 
@@ -333,7 +357,7 @@ def _run_evaluate(manifest_path: Path, corpus_dir: Path) -> None:
 
 
 @app.post("/api/corpus/download")
-async def corpus_download(background_tasks: BackgroundTasks):
+async def corpus_download(background_tasks: BackgroundTasks, _auth: None = Depends(require_api_key)):
     """Trigger corpus binary download as a background task."""
     if not MANIFEST_PATH.exists():
         raise HTTPException(status_code=404, detail="Corpus manifest not found")
@@ -342,7 +366,7 @@ async def corpus_download(background_tasks: BackgroundTasks):
 
 
 @app.post("/api/corpus/evaluate")
-async def corpus_evaluate(background_tasks: BackgroundTasks):
+async def corpus_evaluate(background_tasks: BackgroundTasks, _auth: None = Depends(require_api_key)):
     """Trigger corpus evaluation as a background task."""
     if not MANIFEST_PATH.exists():
         raise HTTPException(status_code=404, detail="Corpus manifest not found")
