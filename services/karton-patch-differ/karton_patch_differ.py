@@ -224,8 +224,44 @@ class PatchDifferKarton(Karton):
         except (ValueError, TypeError):
             return []
 
+    @staticmethod
+    def _normalize_signing_date(raw: str) -> Optional[str]:
+        """Extract a YYYY-MM-DD date from a Sigcheck date string.
+
+        Sigcheck formats vary (e.g. '12:00 AM 1/5/2026', '1/5/2026 12:00 AM',
+        '2026-01-05').  We only need the calendar day so we look for a
+        recognisable date component and return it as ISO date.
+        """
+        if not raw:
+            return None
+        raw = raw.strip()
+        # Try ISO first (2026-01-05)
+        m = re.search(r'(\d{4})-(\d{1,2})-(\d{1,2})', raw)
+        if m:
+            return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        # US format: M/D/YYYY or MM/DD/YYYY (with optional time around it)
+        m = re.search(r'(\d{1,2})/(\d{1,2})/(\d{4})', raw)
+        if m:
+            return f"{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"
+        return None
+
+    def _get_signing_date(self, sample: MWDBFile) -> Optional[str]:
+        """Return normalised signing date (YYYY-MM-DD) from MWDB attributes."""
+        for key in ['sig_date', 'sig_signing_date']:
+            vals = sample.attributes.get(key, [])
+            if vals:
+                raw = vals[0] if isinstance(vals, list) else vals
+                d = self._normalize_signing_date(str(raw))
+                if d:
+                    return d
+        return None
+
     def _find_closest_prior_version(self, info: DriverInfo) -> Optional[MWDBFile]:
-        """Find the closest older version of the same driver in MWDB."""
+        """Find the closest older version of the same driver in MWDB.
+
+        Skips candidates signed on the same day as the new sample — those are
+        almost certainly different-architecture builds of the same release.
+        """
         if not info.product or not info.version:
             return None
 
@@ -236,9 +272,19 @@ class PatchDifferKarton(Karton):
         if not target_ver:
             return None
 
+        # Get the new sample's signing date for same-day filtering
+        try:
+            new_mwdb = self.mwdb.query_file(info.sha256)
+            new_sign_date = self._get_signing_date(new_mwdb) if new_mwdb else None
+        except Exception:
+            new_sign_date = None
+
         candidates = []
 
         for sample in itertools.islice(self.mwdb.search_files(query), 50):
+            if sample.sha256 == info.sha256:
+                continue
+
             # Get version attribute
             version_attr = None
             for key in ['sig_file_version', 'file_version']:
@@ -259,6 +305,17 @@ class PatchDifferKarton(Karton):
                 cand_ver = self._parse_version(version_attr)
                 # Accept strictly older versions only
                 if cand_ver and cand_ver < target_ver:
+                    # Same-day signing → likely a different-arch build, not a
+                    # real version predecessor.  Skip it.
+                    if new_sign_date:
+                        cand_sign_date = self._get_signing_date(sample)
+                        if cand_sign_date and cand_sign_date == new_sign_date:
+                            logger.info(
+                                f"Skipping same-day-signed candidate "
+                                f"{sample.sha256[:12]} (signed {cand_sign_date})"
+                            )
+                            continue
+
                     candidates.append((cand_ver, sample))
 
         if not candidates:
