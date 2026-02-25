@@ -16,6 +16,7 @@ services:
 
   mwdb-postgres:
     image: postgres:14-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: mwdb
       POSTGRES_USER: mwdb
@@ -32,6 +33,7 @@ services:
 
   mwdb-redis:
     image: redis:7-alpine
+    restart: unless-stopped
     networks:
       - mwdb-internal
     healthcheck:
@@ -41,7 +43,8 @@ services:
       retries: 5
 
   mwdb-core:
-    image: certpl/mwdb:latest
+    image: certpl/mwdb@sha256:06750a582ac68662347c75b17b257ddeef0b6f09040431fee3d18c6198b8b58c
+    restart: unless-stopped
     depends_on:
       mwdb-postgres:
         condition: service_healthy
@@ -73,6 +76,7 @@ services:
 
   karton-redis:
     image: redis:7-alpine
+    restart: unless-stopped
     networks:
       - karton
     healthcheck:
@@ -83,6 +87,7 @@ services:
 
   minio:
     image: minio/minio:RELEASE.2024-01-01T16-36-33Z
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
@@ -101,7 +106,8 @@ services:
       retries: 5
 
   karton-system:
-    image: certpl/karton-system:latest
+    image: certpl/karton-system@sha256:dbf670d3be2df712ca643ac3c5acc9dcf72d490c87d0865ea74bf14a266a7c50
+    restart: unless-stopped
     depends_on:
       karton-redis:
         condition: service_healthy
@@ -120,7 +126,8 @@ services:
       - karton
 
   karton-dashboard:
-    image: certpl/karton-dashboard:latest
+    image: certpl/karton-dashboard@sha256:af6961a27b4ecbf991ac4d99a7593a58315dbcd115a8e9b0fce139966032ae79
+    restart: unless-stopped
     depends_on:
       - karton-system
     environment:
@@ -442,7 +449,8 @@ services:
   # ==========================================================================
 
   karton-classifier:
-    image: certpl/karton-classifier:latest
+    image: certpl/karton-classifier@sha256:3905ca00d7ef2d8067e84b4edaf235a0689df47b1585b9ea850e4bde4285b4c3
+    restart: unless-stopped
     depends_on:
       - karton-system
     environment:

@@ -167,7 +167,6 @@ class AutoPiffAlerter(Karton):
                     # Rate limited — retry with backoff
                     retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
                     logger.warning(f"Telegram rate limited, retrying in {retry_after}s (attempt {attempt}/{max_retries})")
-                    import time
                     time.sleep(retry_after)
                     continue
                 else:
@@ -177,7 +176,6 @@ class AutoPiffAlerter(Karton):
             except requests.RequestException as e:
                 logger.error(f"Telegram request failed (attempt {attempt}/{max_retries}): {e}")
                 if attempt < max_retries:
-                    import time
                     time.sleep(2 ** attempt)
                     continue
                 self._store_failed_alert(msg, str(e))
