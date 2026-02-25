@@ -1,5 +1,8 @@
-import type { Finding, TriageEntry } from "@/types";
-import { categoryLabel, cn, scoreColor } from "@/lib/utils";
+"use client";
+
+import { useState } from "react";
+import type { Analysis, Finding, TriageEntry } from "@/types";
+import { categoryLabel, cn, scoreColor, reachabilityLabel, reachabilityBadge, truncateSha } from "@/lib/utils";
 import { ScoreBreakdown } from "./score-breakdown";
 import { DiffViewer } from "./diff-viewer";
 import { ReachabilityPath } from "./reachability-path";
@@ -7,25 +10,75 @@ import { TriageSelector } from "./triage-selector";
 
 interface FindingDetailProps {
   finding: Finding;
+  analysis?: Analysis | null;
   analysisId?: string;
   triage?: TriageEntry | null;
 }
 
-export function FindingDetail({ finding, analysisId, triage }: FindingDetailProps) {
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      title={`Copy ${label}`}
+      className="ml-1 inline-flex items-center rounded px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+    >
+      {copied ? (
+        <svg className="h-3 w-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+export function FindingDetail({ finding, analysis, analysisId, triage }: FindingDetailProps) {
+  const driverNew = analysis?.driver_new;
+  const driverOld = analysis?.driver_old;
+
+  // Find matching IOCTLs for this finding's reachability
+  const relatedIoctls = analysis?.reachability?.ioctls.filter((ioctl) => {
+    if (!finding.reachability_path.length) return false;
+    return finding.reachability_path.some((p) => p === ioctl.handler);
+  }) || [];
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-lg font-semibold font-mono">
-            {finding.function}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold font-mono">
+              {finding.function}
+            </h3>
+            <CopyButton text={finding.function} label="function name" />
+          </div>
           <div className="mt-1 flex items-center gap-2">
             <span className="rounded-md bg-muted px-2 py-0.5 text-xs">
               {categoryLabel(finding.category)}
             </span>
             <span className="font-mono text-xs text-muted-foreground">
               {finding.rule_id}
+            </span>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-xs font-medium",
+                reachabilityBadge(finding.reachability_class)
+              )}
+            >
+              {reachabilityLabel(finding.reachability_class)}
             </span>
           </div>
         </div>
@@ -47,6 +100,86 @@ export function FindingDetail({ finding, analysisId, triage }: FindingDetailProp
         />
       )}
 
+      {/* Driver Context — the key missing info */}
+      {driverNew && (
+        <div className="rounded-lg border bg-muted/30 p-4">
+          <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Driver Context
+          </h4>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {/* New (patched) driver */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Patched Binary (new)</p>
+              <p className="text-sm font-medium">
+                {driverNew.product || "Unknown Driver"}
+                {driverNew.version && (
+                  <span className="ml-2 text-xs text-muted-foreground">v{driverNew.version}</span>
+                )}
+              </p>
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-xs text-muted-foreground">
+                  {truncateSha(driverNew.sha256, 16)}...
+                </span>
+                <CopyButton text={driverNew.sha256} label="SHA256" />
+              </div>
+              <p className="text-xs text-muted-foreground">{driverNew.arch}</p>
+            </div>
+
+            {/* Old (vulnerable) driver */}
+            {driverOld && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Vulnerable Binary (old)</p>
+                <p className="text-sm font-medium">
+                  {driverOld.product || "Unknown Driver"}
+                  {driverOld.version && (
+                    <span className="ml-2 text-xs text-muted-foreground">v{driverOld.version}</span>
+                  )}
+                </p>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {truncateSha(driverOld.sha256, 16)}...
+                  </span>
+                  <CopyButton text={driverOld.sha256} label="SHA256" />
+                </div>
+                <p className="text-xs text-muted-foreground">{driverOld.arch}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Surface Area + Related IOCTLs */}
+      {(finding.surface_area.length > 0 || relatedIoctls.length > 0) && (
+        <div>
+          <h4 className="text-sm font-medium text-muted-foreground">Attack Surface</h4>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {finding.surface_area.map((s) => (
+              <span
+                key={s}
+                className="rounded-md border border-orange-500/30 bg-orange-500/10 px-2 py-1 text-xs font-medium text-orange-700 dark:text-orange-300"
+              >
+                {s}
+              </span>
+            ))}
+          </div>
+          {relatedIoctls.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {relatedIoctls.map((ioctl) => (
+                <div key={ioctl.ioctl} className="flex items-center gap-2 text-xs">
+                  <span className="font-mono font-semibold text-red-600 dark:text-red-400">
+                    {ioctl.ioctl}
+                  </span>
+                  <CopyButton text={ioctl.ioctl} label="IOCTL code" />
+                  <span className="text-muted-foreground">
+                    via <span className="font-mono">{ioctl.handler}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Why it matters */}
       <div>
         <h4 className="text-sm font-medium text-muted-foreground">
@@ -57,34 +190,38 @@ export function FindingDetail({ finding, analysisId, triage }: FindingDetailProp
 
       {/* Indicators */}
       <div className="flex gap-8">
-        <div>
-          <h4 className="text-sm font-medium text-muted-foreground">Sinks</h4>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {finding.sinks.map((sink) => (
-              <span
-                key={sink}
-                className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-mono text-red-700"
-              >
-                {sink}
-              </span>
-            ))}
+        {finding.sinks.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground">Sinks</h4>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {finding.sinks.map((sink) => (
+                <span
+                  key={sink}
+                  className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-mono text-red-700"
+                >
+                  {sink}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-        <div>
-          <h4 className="text-sm font-medium text-muted-foreground">
-            Indicators
-          </h4>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {finding.indicators.map((ind) => (
-              <span
-                key={ind}
-                className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-mono text-blue-700"
-              >
-                {ind}
-              </span>
-            ))}
+        )}
+        {finding.indicators.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground">
+              Indicators
+            </h4>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {finding.indicators.map((ind) => (
+                <span
+                  key={ind}
+                  className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-mono text-blue-700"
+                >
+                  {ind}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Reachability */}
@@ -118,6 +255,46 @@ export function FindingDetail({ finding, analysisId, triage }: FindingDetailProp
         </h4>
         <DiffViewer snippet={finding.diff_snippet} />
       </div>
+
+      {/* Quick-copy reference */}
+      {driverNew && (
+        <div className="rounded-lg border border-dashed p-3">
+          <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Quick Reference
+          </h4>
+          <div className="mt-2 grid gap-1 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-20 text-muted-foreground">Function:</span>
+              <code className="font-mono">{finding.function}</code>
+              <CopyButton text={finding.function} label="function" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-20 text-muted-foreground">New SHA256:</span>
+              <code className="font-mono">{truncateSha(driverNew.sha256, 20)}...</code>
+              <CopyButton text={driverNew.sha256} label="new SHA256" />
+            </div>
+            {driverOld && (
+              <div className="flex items-center gap-2">
+                <span className="w-20 text-muted-foreground">Old SHA256:</span>
+                <code className="font-mono">{truncateSha(driverOld.sha256, 20)}...</code>
+                <CopyButton text={driverOld.sha256} label="old SHA256" />
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <span className="w-20 text-muted-foreground">Rule:</span>
+              <code className="font-mono">{finding.rule_id}</code>
+              <CopyButton text={finding.rule_id} label="rule ID" />
+            </div>
+            {relatedIoctls.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="w-20 text-muted-foreground">IOCTL:</span>
+                <code className="font-mono">{relatedIoctls[0].ioctl}</code>
+                <CopyButton text={relatedIoctls[0].ioctl} label="IOCTL" />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

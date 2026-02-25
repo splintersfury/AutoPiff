@@ -210,6 +210,7 @@ export default function AnalysisPage() {
         <div className="rounded-xl border bg-card p-6">
           <FindingDetail
             finding={selectedFinding}
+            analysis={analysis}
             analysisId={id}
             triage={triageStates[selectedFinding.function] || null}
           />
