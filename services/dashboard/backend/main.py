@@ -440,7 +440,7 @@ async def set_triage_state(analysis_id: str, function: str, body: TriageUpdate, 
 async def corpus_overview():
     """Get corpus overview with per-CVE status and aggregate metrics."""
     if not MANIFEST_PATH.exists():
-        raise HTTPException(status_code=404, detail="Corpus manifest not found")
+        return CorpusOverview()
     return get_corpus_overview(MANIFEST_PATH, CORPUS_DIR)
 
 

@@ -852,6 +852,28 @@ export default function CorpusPage() {
 
   const hasEvaluated = data.evaluated > 0;
 
+  // Empty corpus — no manifest loaded
+  if (data.total_cves === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">CVE Validation Corpus</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ground truth for rule engine precision &amp; recall measurement
+          </p>
+        </div>
+        <div className="rounded-lg border bg-muted/50 p-8 text-center">
+          <p className="text-muted-foreground">No corpus data loaded.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The corpus manifest has not been configured. Set{" "}
+            <code className="rounded bg-muted px-1">AUTOPIFF_MANIFEST_PATH</code>{" "}
+            or run the full Docker stack to use the validation corpus.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Unique categories from CVEs
   const allCategories = [
     ...new Set(data.cves.map((c) => c.expected_category_primary).filter(Boolean)),

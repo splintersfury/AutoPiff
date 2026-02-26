@@ -47,6 +47,7 @@ export default function PipelinePage() {
 
   const onlineCount = health.stages.filter((s) => s.status === "online").length;
   const totalStages = health.stages.length;
+  const allUnknown = health.stages.every((s) => s.status === "unknown");
 
   // Group stages by type
   const pipelineStages = health.stages.filter((s) =>
@@ -68,33 +69,45 @@ export default function PipelinePage() {
         </p>
       </div>
 
+      {/* No Redis banner */}
+      {!health.redis_connected && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4">
+          <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+            Redis not connected
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Pipeline monitoring requires a connection to Karton Redis. Set <code className="rounded bg-muted px-1">KARTON_REDIS_HOST</code> or run the full Docker stack to see live consumer status.
+          </p>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-xl border bg-card p-5">
           <p className="text-sm text-muted-foreground">Active Consumers</p>
           <p className={cn(
             "mt-1 text-2xl font-semibold",
-            onlineCount === totalStages ? "text-green-600 dark:text-green-400" : onlineCount > 0 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"
+            allUnknown ? "text-muted-foreground" : onlineCount === totalStages ? "text-green-600 dark:text-green-400" : onlineCount > 0 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"
           )}>
-            {onlineCount} / {totalStages}
+            {allUnknown ? "—" : `${onlineCount} / ${totalStages}`}
           </p>
         </div>
         <div className="rounded-xl border bg-card p-5">
           <p className="text-sm text-muted-foreground">Redis</p>
           <p className={cn(
             "mt-1 text-2xl font-semibold",
-            health.redis_connected ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+            health.redis_connected ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
           )}>
-            {health.redis_connected ? "Connected" : "Disconnected"}
+            {health.redis_connected ? "Connected" : "Not configured"}
           </p>
         </div>
         <div className="rounded-xl border bg-card p-5">
           <p className="text-sm text-muted-foreground">Pipeline Status</p>
           <p className={cn(
             "mt-1 text-2xl font-semibold",
-            onlineCount === totalStages ? "text-green-600 dark:text-green-400" : "text-yellow-600 dark:text-yellow-400"
+            allUnknown ? "text-muted-foreground" : onlineCount === totalStages ? "text-green-600 dark:text-green-400" : "text-yellow-600 dark:text-yellow-400"
           )}>
-            {onlineCount === totalStages ? "Healthy" : onlineCount > 0 ? "Degraded" : "Down"}
+            {allUnknown ? "No data" : onlineCount === totalStages ? "Healthy" : onlineCount > 0 ? "Degraded" : "Down"}
           </p>
         </div>
       </div>
