@@ -228,12 +228,32 @@ export type TriageState =
   | "false_positive"
   | "resolved";
 
+export type ExploitStage =
+  | "not_started"
+  | "recon"
+  | "poc"
+  | "tested"
+  | "working";
+
 export interface TriageEntry {
   analysis_id: string;
   function: string;
   state: TriageState;
+  exploit_stage: ExploitStage;
   updated_at: string;
   note: string;
+}
+
+export interface VariantMatch {
+  analysis_id: string;
+  driver_name: string;
+  function: string;
+  rule_id: string;
+  category: string;
+  final_score: number;
+  confidence: number;
+  reachability_class: string;
+  created_at: string;
 }
 
 export interface TriageSummary {

@@ -875,9 +875,9 @@ export default function CorpusPage() {
   }
 
   // Unique categories from CVEs
-  const allCategories = [
-    ...new Set(data.cves.map((c) => c.expected_category_primary).filter(Boolean)),
-  ].sort();
+  const allCategories = Array.from(
+    new Set(data.cves.map((c) => c.expected_category_primary).filter(Boolean))
+  ).sort();
 
   // Apply filters
   const filteredCves = data.cves.filter((cve) => {

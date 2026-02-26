@@ -234,17 +234,34 @@ class TriageState(str, Enum):
     resolved = "resolved"
 
 
+class ExploitStage(str, Enum):
+    not_started = "not_started"
+    recon = "recon"
+    poc = "poc"
+    tested = "tested"
+    working = "working"
+
+
 class TriageEntry(BaseModel):
     """Triage state for a single finding (keyed by analysis_id + function)."""
     analysis_id: str
     function: str
     state: TriageState = TriageState.untriaged
+    exploit_stage: ExploitStage = ExploitStage.not_started
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     note: str = ""
 
 
 class TriageUpdate(BaseModel):
     """Request body for updating triage state."""
+    state: TriageState
+    exploit_stage: Optional[ExploitStage] = None
+    note: str = ""
+
+
+class BulkTriageUpdate(BaseModel):
+    """Bulk triage request for multiple findings."""
+    functions: list[str]
     state: TriageState
     note: str = ""
 
@@ -324,6 +341,19 @@ class VariantAlertEntry(BaseModel):
 class AlertsResponse(BaseModel):
     alerts: list[AlertEntry] = []
     variants: list[VariantAlertEntry] = []
+
+
+class VariantMatch(BaseModel):
+    """A finding in another analysis with the same rule/category."""
+    analysis_id: str
+    driver_name: str
+    function: str
+    rule_id: str
+    category: str
+    final_score: float
+    confidence: float
+    reachability_class: str
+    created_at: str
 
 
 # --- Search ---

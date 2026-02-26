@@ -21,6 +21,7 @@ from .models import (
     AlertsResponse,
     Analysis,
     AnalysisListResponse,
+    BulkTriageUpdate,
     CorpusOverview,
     CVECorpusEntry,
     DriverSummary,
@@ -34,6 +35,7 @@ from .models import (
     TriageSummary,
     TriageUpdate,
     VariantAlertEntry,
+    VariantMatch,
 )
 from .storage import FileStorage, MWDBStorage
 from .triage import TriageStore
@@ -435,6 +437,12 @@ async def get_triage_states(analysis_id: str):
     return triage_store.get_for_analysis(analysis_id)
 
 
+@app.put("/api/triage/{analysis_id}/bulk", response_model=list[TriageEntry])
+async def bulk_triage(analysis_id: str, body: BulkTriageUpdate, _auth: None = Depends(require_api_key)):
+    """Bulk update triage state for multiple findings."""
+    return triage_store.set_bulk(analysis_id, body.functions, body.state, body.note)
+
+
 @app.get("/api/triage/{analysis_id}/{function}", response_model=TriageEntry)
 async def get_triage_state(analysis_id: str, function: str):
     """Get triage state for a specific finding."""
@@ -444,7 +452,49 @@ async def get_triage_state(analysis_id: str, function: str):
 @app.put("/api/triage/{analysis_id}/{function}", response_model=TriageEntry)
 async def set_triage_state(analysis_id: str, function: str, body: TriageUpdate, _auth: None = Depends(require_api_key)):
     """Update triage state for a specific finding."""
-    return triage_store.set(analysis_id, function, body.state, body.note)
+    return triage_store.set(analysis_id, function, body.state, body.note, body.exploit_stage)
+
+
+# ==========================================================================
+# Variant Search (cross-driver)
+# ==========================================================================
+
+
+@app.get("/api/variants/{analysis_id}/{function}", response_model=list[VariantMatch])
+async def find_variants(analysis_id: str, function: str):
+    """Find similar findings (same rule_id or category) in other analyses."""
+    source = file_storage.get_analysis(analysis_id)
+    if source is None:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    source_finding = next((f for f in source.findings if f.function == function), None)
+    if source_finding is None:
+        raise HTTPException(status_code=404, detail="Finding not found")
+
+    matches: list[VariantMatch] = []
+    for item in file_storage.list_analyses():
+        if item.id == analysis_id:
+            continue
+        other = file_storage.get_analysis(item.id)
+        if other is None:
+            continue
+        for f in other.findings:
+            if f.rule_id == source_finding.rule_id or (
+                f.category == source_finding.category
+                and abs(f.final_score - source_finding.final_score) < 3.0
+            ):
+                matches.append(VariantMatch(
+                    analysis_id=item.id,
+                    driver_name=item.driver_name or item.id,
+                    function=f.function,
+                    rule_id=f.rule_id,
+                    category=f.category.value if hasattr(f.category, 'value') else str(f.category),
+                    final_score=f.final_score,
+                    confidence=f.confidence,
+                    reachability_class=f.reachability_class.value if hasattr(f.reachability_class, 'value') else str(f.reachability_class),
+                    created_at=item.created_at.isoformat() if hasattr(item.created_at, 'isoformat') else str(item.created_at),
+                ))
+    matches.sort(key=lambda m: m.final_score, reverse=True)
+    return matches[:30]
 
 
 # ==========================================================================

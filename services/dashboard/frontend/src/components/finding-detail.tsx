@@ -1,12 +1,39 @@
 "use client";
 
-import { useState } from "react";
-import type { Analysis, Finding, TriageEntry } from "@/types";
+import { useState, useEffect } from "react";
+import type { Analysis, Finding, TriageEntry, VariantMatch } from "@/types";
 import { categoryLabel, cn, scoreColor, reachabilityLabel, reachabilityBadge, truncateSha } from "@/lib/utils";
 import { ScoreBreakdown } from "./score-breakdown";
 import { DiffViewer } from "./diff-viewer";
 import { ReachabilityPath } from "./reachability-path";
 import { TriageSelector } from "./triage-selector";
+import { ExploitTracker } from "./exploit-tracker";
+import { getVariants } from "@/lib/api";
+
+function BinaryLinks({ sha256 }: { sha256: string }) {
+  return (
+    <span className="inline-flex gap-1.5 ml-1">
+      <a
+        href={`https://www.virustotal.com/gui/file/${sha256}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400 transition-colors"
+        title="View on VirusTotal"
+      >
+        VT
+      </a>
+      <a
+        href={`https://winbindex.m417z.com/?hash=${sha256}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 dark:text-purple-400 transition-colors"
+        title="Look up on WinBIndex"
+      >
+        WBI
+      </a>
+    </span>
+  );
+}
 
 interface FindingDetailProps {
   finding: Finding;
@@ -45,6 +72,18 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 }
 
 export function FindingDetail({ finding, analysis, analysisId, triage }: FindingDetailProps) {
+  const [variants, setVariants] = useState<VariantMatch[]>([]);
+  const [variantsLoading, setVariantsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!analysisId) return;
+    setVariantsLoading(true);
+    getVariants(analysisId, finding.function)
+      .then(setVariants)
+      .catch(() => setVariants([]))
+      .finally(() => setVariantsLoading(false));
+  }, [analysisId, finding.function]);
+
   const driverNew = analysis?.driver_new;
   const driverOld = analysis?.driver_old;
 
@@ -90,14 +129,21 @@ export function FindingDetail({ finding, analysis, analysisId, triage }: Finding
         </div>
       </div>
 
-      {/* Triage */}
+      {/* Triage + Exploit Stage */}
       {analysisId && (
-        <TriageSelector
-          analysisId={analysisId}
-          functionName={finding.function}
-          currentState={triage?.state || "untriaged"}
-          currentNote={triage?.note || ""}
-        />
+        <div className="flex flex-wrap items-start gap-4">
+          <TriageSelector
+            analysisId={analysisId}
+            functionName={finding.function}
+            currentState={triage?.state || "untriaged"}
+            currentNote={triage?.note || ""}
+          />
+          <ExploitTracker
+            analysisId={analysisId}
+            functionName={finding.function}
+            currentStage={triage?.exploit_stage || "not_started"}
+          />
+        </div>
       )}
 
       {/* Driver Context — the key missing info */}
@@ -121,6 +167,7 @@ export function FindingDetail({ finding, analysis, analysisId, triage }: Finding
                   {truncateSha(driverNew.sha256, 16)}...
                 </span>
                 <CopyButton text={driverNew.sha256} label="SHA256" />
+                <BinaryLinks sha256={driverNew.sha256} />
               </div>
               <p className="text-xs text-muted-foreground">{driverNew.arch}</p>
             </div>
@@ -140,6 +187,7 @@ export function FindingDetail({ finding, analysis, analysisId, triage }: Finding
                     {truncateSha(driverOld.sha256, 16)}...
                   </span>
                   <CopyButton text={driverOld.sha256} label="SHA256" />
+                  <BinaryLinks sha256={driverOld.sha256} />
                 </div>
                 <p className="text-xs text-muted-foreground">{driverOld.arch}</p>
               </div>
@@ -253,8 +301,55 @@ export function FindingDetail({ finding, analysis, analysisId, triage }: Finding
         <h4 className="mb-2 text-sm font-medium text-muted-foreground">
           Diff Snippet
         </h4>
-        <DiffViewer snippet={finding.diff_snippet} />
+        <DiffViewer
+          snippet={finding.diff_snippet}
+          shaNew={driverNew?.sha256}
+          shaOld={driverOld?.sha256}
+        />
       </div>
+
+      {/* Cross-driver variants */}
+      {analysisId && (
+        <div>
+          <h4 className="mb-2 text-sm font-medium text-muted-foreground">
+            Similar Findings in Other Drivers
+          </h4>
+          {variantsLoading ? (
+            <p className="text-xs text-muted-foreground">Searching...</p>
+          ) : variants.length > 0 ? (
+            <div className="space-y-1.5">
+              {variants.map((v) => (
+                <a
+                  key={`${v.analysis_id}::${v.function}`}
+                  href={`/analysis/${v.analysis_id}?fn=${encodeURIComponent(v.function)}`}
+                  className="flex items-center justify-between rounded-md border px-3 py-2 text-xs transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{v.driver_name}</span>
+                    <span className="font-mono text-muted-foreground">{v.function}</span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">{v.category}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={cn("font-mono font-semibold", scoreColor(v.final_score))}>
+                      {v.final_score.toFixed(2)}
+                    </span>
+                    <span className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px]",
+                      reachabilityBadge(v.reachability_class)
+                    )}>
+                      {reachabilityLabel(v.reachability_class)}
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No similar findings in other analyses.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Quick-copy reference */}
       {driverNew && (

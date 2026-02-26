@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from .models import TriageEntry, TriageState, TriageSummary
+from .models import ExploitStage, TriageEntry, TriageState, TriageSummary
 
 logger = logging.getLogger(__name__)
 
@@ -70,18 +70,51 @@ class TriageStore:
         function: str,
         state: TriageState,
         note: str = "",
+        exploit_stage: Optional[ExploitStage] = None,
     ) -> TriageEntry:
         key = self._key(analysis_id, function)
+        # Preserve existing exploit_stage if not explicitly set
+        existing_exploit = ExploitStage.not_started
+        if key in self._data:
+            existing_exploit = ExploitStage(self._data[key].get("exploit_stage", "not_started"))
         entry = TriageEntry(
             analysis_id=analysis_id,
             function=function,
             state=state,
+            exploit_stage=exploit_stage if exploit_stage is not None else existing_exploit,
             updated_at=datetime.now(),
             note=note,
         )
         self._data[key] = entry.model_dump()
         self._save()
         return entry
+
+    def set_bulk(
+        self,
+        analysis_id: str,
+        functions: list[str],
+        state: TriageState,
+        note: str = "",
+    ) -> list[TriageEntry]:
+        """Set triage state for multiple findings at once."""
+        entries = []
+        for func in functions:
+            key = self._key(analysis_id, func)
+            existing_exploit = ExploitStage.not_started
+            if key in self._data:
+                existing_exploit = ExploitStage(self._data[key].get("exploit_stage", "not_started"))
+            entry = TriageEntry(
+                analysis_id=analysis_id,
+                function=func,
+                state=state,
+                exploit_stage=existing_exploit,
+                updated_at=datetime.now(),
+                note=note,
+            )
+            self._data[key] = entry.model_dump()
+            entries.append(entry)
+        self._save()
+        return entries
 
     def summary(self) -> TriageSummary:
         counts = {s.value: 0 for s in TriageState}

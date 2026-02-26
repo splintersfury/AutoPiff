@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import type { Analysis, Finding, TriageEntry } from "@/types";
 import { OverviewCards, TrustIndicators } from "@/components/overview-cards";
 import { FindingsTable } from "@/components/findings-table";
@@ -10,7 +10,9 @@ import { formatDate, truncateSha, cn, triageBadge, triageLabel } from "@/lib/uti
 
 export default function AnalysisPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+  const fnParam = searchParams.get("fn");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
   const [triageStates, setTriageStates] = useState<Record<string, TriageEntry>>({});
@@ -31,16 +33,18 @@ export default function AnalysisPage() {
       .then(([data, triage]: [Analysis, Record<string, TriageEntry>]) => {
         setAnalysis(data);
         setTriageStates(triage || {});
-        if (data.findings.length > 0) {
-          setSelectedFinding(data.findings[0]);
-        }
+        // Deep-link to specific finding if ?fn= is present
+        const target = fnParam
+          ? data.findings.find((f: Finding) => f.function === fnParam)
+          : null;
+        setSelectedFinding(target || data.findings[0] || null);
         setLoading(false);
       })
       .catch((e) => {
         setError(e.message);
         setLoading(false);
       });
-  }, [id]);
+  }, [id, fnParam]);
 
   if (loading) {
     return (
@@ -201,6 +205,13 @@ export default function AnalysisPage() {
             onSelect={setSelectedFinding}
             selectedFunction={selectedFinding?.function}
             triageStates={triageStates}
+            analysisId={id}
+            onTriageUpdate={() => {
+              // Refresh triage states after bulk update
+              fetch(`/api/triage/${id}`)
+                .then((res) => (res.ok ? res.json() : {}))
+                .then((data) => setTriageStates(data || {}));
+            }}
           />
         </div>
       </div>

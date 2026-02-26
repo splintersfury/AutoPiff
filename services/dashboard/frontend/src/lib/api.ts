@@ -7,6 +7,7 @@ import type {
   CorpusSource,
   CVECorpusEntry,
   DriverSummary,
+  ExploitStage,
   Finding,
   PipelineHealth,
   SearchResponse,
@@ -14,6 +15,7 @@ import type {
   TriageEntry,
   TriageSummary,
   TriageState,
+  VariantMatch,
 } from "@/types";
 
 // Server-side (SSR) fetch needs a full URL; client-side uses relative paths
@@ -115,20 +117,49 @@ export async function setTriageState(
   analysisId: string,
   func: string,
   state: TriageState,
-  note = ""
+  note = "",
+  exploitStage?: ExploitStage
 ): Promise<TriageEntry> {
+  const body: Record<string, unknown> = { state, note };
+  if (exploitStage) body.exploit_stage = exploitStage;
   const res = await fetch(
     `${API_BASE}/api/triage/${analysisId}/${encodeURIComponent(func)}`,
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ state, note }),
+      body: JSON.stringify(body),
     }
   );
   if (!res.ok) {
     throw new Error(`API error: ${res.status} ${res.statusText}`);
   }
   return res.json();
+}
+
+export async function bulkTriage(
+  analysisId: string,
+  functions: string[],
+  state: TriageState,
+  note = ""
+): Promise<TriageEntry[]> {
+  const res = await fetch(`${API_BASE}/api/triage/${analysisId}/bulk`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ functions, state, note }),
+  });
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function getVariants(
+  analysisId: string,
+  func: string
+): Promise<VariantMatch[]> {
+  return fetchJson(
+    `/api/variants/${analysisId}/${encodeURIComponent(func)}`
+  );
 }
 
 // --- Drivers ---
