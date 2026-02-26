@@ -315,9 +315,25 @@ async def pipeline_health():
     """Get pipeline stage health from Karton Redis."""
     rdb = _get_redis()
     if not rdb:
-        return PipelineHealth(
-            stages=[PipelineStage(name=n, identity=i, status="unknown") for n, i in _EXPECTED_STAGES],
-        )
+        # No Redis — infer stage status from analyses on disk
+        analyses = file_storage.list_analyses()
+        has_analyses = len(analyses) > 0
+        has_reachable = any(a.reachable_findings and a.reachable_findings > 0 for a in analyses)
+        stages = []
+        for name, identity in _EXPECTED_STAGES:
+            # If we have analyses, core pipeline stages must have run
+            if has_analyses and identity in (
+                "karton.autopiff.patch-differ", "karton.autopiff.ranking",
+                "karton.autopiff.report", "karton.autopiff.driver-monitor",
+            ):
+                status = "online"
+            elif has_reachable and identity == "karton.autopiff.reachability":
+                status = "online"
+            else:
+                status = "unknown"
+            stages.append(PipelineStage(name=name, identity=identity, status=status))
+        active = sum(1 for s in stages if s.status == "online")
+        return PipelineHealth(stages=stages, active_consumers=active)
 
     stages = []
     active = 0
